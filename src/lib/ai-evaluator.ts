@@ -10,9 +10,9 @@ export interface EvaluateApplicantParams {
 }
 
 const FALLBACK_MODELS = [
+  'gemini-3.5-flash',
   'gemini-3.6-flash',
   'gemini-flash-latest',
-  'gemini-3.5-flash',
   'gemini-2.5-flash'
 ];
 
@@ -54,9 +54,32 @@ ${portfolioDocs.length > 0 ? portfolioDocs.map(p => `[Portofolio: ${p.name}]\n${
 ${otherDocs.length > 0 ? otherDocs.map(o => `[${o.name}]\n${o.extractedText || ''}`).join('\n\n') : 'Tidak ada'}
   `.trim();
 
-  const apiKey = (geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
+  const apiKey = (geminiApiKey || (typeof process !== 'undefined' ? process.env?.GEMINI_API_KEY : '') || '').trim();
 
-  // If Gemini API Key is available, run authentic Gemini AI analysis
+  // If running in browser and client has no direct key, delegate to server /api/ai-analyze (which has GEMINI_API_KEY from .env.local)
+  if (typeof window !== 'undefined' && (!apiKey || apiKey.length < 10)) {
+    try {
+      const res = await fetch('/api/ai-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          job,
+          documents,
+          applicantName,
+          applicantHeadline,
+          preferredModel
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.evaluation) {
+        return data.evaluation;
+      }
+    } catch (e) {
+      console.warn('Server AI analyze route delegation failed:', e);
+    }
+  }
+
+  // If Gemini API Key is available (direct or server), run authentic Gemini AI analysis
   if (apiKey && apiKey.length > 10) {
     try {
       const geminiResult = await callGeminiApiWithFallback(

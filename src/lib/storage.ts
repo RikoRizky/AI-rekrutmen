@@ -1,6 +1,6 @@
 'use client';
 
-import { Job, Application, User, AppSettings, UserRole } from './types';
+import { Job, Application, User, AppSettings, UserRole, AiEvaluationResult } from './types';
 import { SEED_JOBS, SEED_APPLICATIONS, SEED_USERS, DEFAULT_SETTINGS } from './seed-data';
 
 const JOBS_KEY = 'smartrecruit_jobs';

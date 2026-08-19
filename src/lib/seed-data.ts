@@ -419,7 +419,7 @@ S1 Desain Komunikasi Visual (DKV) - Universitas Trisakti`,
 ];
 
 export const DEFAULT_SETTINGS = {
-  geminiApiKey: 'AQ.Ab8RN6JWKkYM9f4PRXkY2Y03KuZCzXAfxsuVU0lXjyHPqryoFQ',
+  geminiApiKey: '',
   aiModel: 'gemini-3.6-flash',
   autoScreening: true,
   minPassingScore: 70
