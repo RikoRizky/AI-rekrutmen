@@ -79,6 +79,7 @@ ${otherDocs.length > 0 ? otherDocs.map(o => `[${o.name}]\n${o.extractedText || '
     }
   }
 
+  
   // If Gemini API Key is available (direct or server), run authentic Gemini AI analysis
   if (apiKey && apiKey.length > 10) {
     try {
