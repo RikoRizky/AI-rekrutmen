@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { User, Application } from '@/lib/types';
-import { getCurrentUser, logoutUser, getAllApplications, getAllCompanies, getDefaultCompanyLogo, REFRESH_EVENT, initializeStorage } from '@/lib/storage';
+import { getCurrentUser, logoutUser, getAllApplications, getAllCompanies, getDefaultCompanyLogo, getDefaultUserAvatar, REFRESH_EVENT, initializeStorage } from '@/lib/storage';
 import {
   Briefcase,
   PlusCircle,
@@ -21,16 +21,18 @@ import {
 } from 'lucide-react';
 
 export default function Navbar() {
-  const pathname = usePathname();
   const router = useRouter();
+  const pathname = usePathname();
   const [currentUser, setCurrentUserState] = useState<User | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
   useEffect(() => {
     initializeStorage();
     const load = () => {
-      setCurrentUserState(getCurrentUser());
+      const u = getCurrentUser();
+      setCurrentUserState(u);
       setApplications(getAllApplications());
     };
     load();
@@ -41,18 +43,18 @@ export default function Navbar() {
 
   const getUserAvatar = () => {
     if (!currentUser) return '';
-    if (currentUser.role === 'company_admin' && currentUser.companyId) {
+    if (currentUser.role === 'company_admin' || currentUser.companyId) {
       const companies = getAllCompanies();
       const comp = companies.find((c) => c.id === currentUser.companyId);
       if (comp && comp.logo && !comp.logo.includes('photo-1599305445671-ac291c95aaa9')) {
         return comp.logo;
       }
-      return getDefaultCompanyLogo(currentUser.companyName || currentUser.name);
+      return getDefaultCompanyLogo(currentUser.companyName || currentUser.name || 'PT');
     }
-    if (currentUser.avatar && !currentUser.avatar.includes('avataaars')) {
+    if (currentUser.avatar && !currentUser.avatar.includes('avataaars') && !currentUser.avatar.includes('api.dicebear.com')) {
       return currentUser.avatar;
     }
-    return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(currentUser.name)}&backgroundColor=059669,047857,0f172a&textColor=ffffff`;
+    return getDefaultUserAvatar(currentUser.name || 'User');
   };
 
   const handleLogout = () => {

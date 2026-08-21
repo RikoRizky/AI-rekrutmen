@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { getDefaultUserAvatar } from '@/lib/storage';
 
 // GET /api/auth?email=... OR GET all users
 export async function GET(req: NextRequest) {
@@ -133,7 +134,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Register new user via Google
-      const avatar = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name || cleanEmail)}&backgroundColor=059669,047857,0f172a&textColor=ffffff`;
+      const avatar = getDefaultUserAvatar(name || cleanEmail);
       user = await prisma.user.create({
         data: {
           id: `user-${Date.now()}`,
@@ -159,7 +160,7 @@ export async function POST(req: NextRequest) {
           phone: user.phone,
           role: user.role,
           headline: user.headline,
-          avatar: user.image,
+          avatar: user.image || getDefaultUserAvatar(user.name),
           companyId: user.companyId,
           companyName: user.company?.name || companyName,
           biodata: user.biodata as any,
@@ -189,7 +190,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const avatar = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name || cleanEmail)}&backgroundColor=059669,047857,0f172a&textColor=ffffff`;
+      const avatar = getDefaultUserAvatar(name || cleanEmail);
       const newUser = await prisma.user.create({
         data: {
           id: `user-${Date.now()}`,

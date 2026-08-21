@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { User, UserBiodata, SocialMediaItem } from '@/lib/types';
-import { getCurrentUser, updateUserBiodata, initializeStorage } from '@/lib/storage';
+import { getCurrentUser, updateUserBiodata, initializeStorage, getDefaultUserAvatar } from '@/lib/storage';
 import { analyzeCandidateBackgroundWithAi } from '@/lib/ai-background-evaluator';
 import Link from 'next/link';
 import {
@@ -103,9 +103,9 @@ function ProfileContent() {
     }
     setCurrentUser(user);
 
-    // Initial avatar logic: if cartoon female avatar, use clean gender-neutral initials
-    const defaultNeutral = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name || 'User')}&backgroundColor=059669,047857,0f172a&textColor=ffffff`;
-    if (user.avatar && !user.avatar.includes('avataaars')) {
+    // Initial avatar logic: Use clean, self-contained SVG candidate avatar
+    const defaultNeutral = getDefaultUserAvatar(user.name || 'User');
+    if (user.avatar && !user.avatar.includes('avataaars') && !user.avatar.includes('api.dicebear.com')) {
       setAvatarUrl(user.avatar);
     } else {
       setAvatarUrl(defaultNeutral);
@@ -449,7 +449,7 @@ function ProfileContent() {
             <div className="sm:col-span-2 flex flex-col sm:flex-row items-center sm:items-start gap-4 p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80">
               <div className="relative group shrink-0">
                 <img
-                  src={avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName || currentUser.name || 'User')}&backgroundColor=059669,047857,0f172a&textColor=ffffff`}
+                  src={avatarUrl || getDefaultUserAvatar(fullName || currentUser?.name || 'User')}
                   alt="Foto Profil"
                   className="w-20 h-20 rounded-2xl object-cover border-2 border-emerald-500/40 shadow-lg bg-slate-900"
                 />
@@ -490,10 +490,13 @@ function ProfileContent() {
                   {avatarUrl && (
                     <button
                       type="button"
-                      onClick={handleResetAvatar}
+                      onClick={() => {
+                        const def = getDefaultUserAvatar(fullName || currentUser?.name || 'User');
+                        setAvatarUrl(def);
+                      }}
                       className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 text-[11px] font-medium transition-colors"
                     >
-                      Gunakan Inisial Netral
+                      Gunakan Foto Default Pelamar
                     </button>
                   )}
                 </div>

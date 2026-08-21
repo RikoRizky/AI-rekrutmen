@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Application, ApplicationStatus } from '@/lib/types';
-import { updateApplicationStatus, getCurrentUser } from '@/lib/storage';
+import { updateApplicationStatus, getCurrentUser, getDefaultUserAvatar } from '@/lib/storage';
 import AiAnalysisRadar from './AiAnalysisRadar';
 import AiScoreBadge from './AiScoreBadge';
 import {
@@ -93,8 +93,12 @@ export default function CandidateDetailModal({
         {/* Header Modal */}
         <div className="px-6 sm:px-8 py-5 sm:py-6 border-b border-slate-800 bg-slate-950/70 flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-emerald-400 font-bold text-xl overflow-hidden shrink-0 shadow-inner">
-              {application.applicantName.charAt(0)}
+            <div className="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+              <img
+                src={getDefaultUserAvatar(application.applicantName)}
+                alt={application.applicantName}
+                className="w-full h-full object-cover"
+              />
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-1.5">

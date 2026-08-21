@@ -358,6 +358,46 @@ export function getCompanyById(id: string): Company | null {
   return companies.find((c) => c.id === id) || null;
 }
 
+export function getDefaultUserAvatar(name: string): string {
+  const cleanName = (name || 'Pelamar').trim();
+  const initials = cleanName
+    .split(' ')
+    .filter(Boolean)
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() || 'PL';
+
+  const colors = [
+    { from: '#059669', to: '#0d9488', ring: '#10b981' }, // Emerald / Teal
+    { from: '#0284c7', to: '#0369a1', ring: '#38bdf8' }, // Sky / Blue
+    { from: '#4f46e5', to: '#4338ca', ring: '#818cf8' }, // Indigo
+    { from: '#7c3aed', to: '#6d28d9', ring: '#a78bfa' }, // Violet
+    { from: '#0d9488', to: '#115e59', ring: '#2dd4bf' }  // Teal
+  ];
+  const charCodeSum = cleanName.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const color = colors[charCodeSum % colors.length];
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+    <defs>
+      <linearGradient id="userGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="${color.from}" />
+        <stop offset="100%" stop-color="${color.to}" />
+      </linearGradient>
+    </defs>
+    <rect width="128" height="128" rx="36" fill="#0f172a" />
+    <circle cx="64" cy="64" r="56" fill="url(#userGrad)" />
+    <!-- Candidate Person Silhouette -->
+    <circle cx="64" cy="48" r="19" fill="#ffffff" fill-opacity="0.95" />
+    <path d="M34 100c0-16.569 13.431-30 30-30s30 13.431 30 30" fill="#ffffff" fill-opacity="0.95" />
+    <!-- Badge with Initials -->
+    <rect x="36" y="90" width="56" height="24" rx="12" fill="#0f172a" fill-opacity="0.95" stroke="${color.ring}" stroke-width="2" />
+    <text x="64" y="106" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="1">${initials}</text>
+  </svg>`;
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
 export function getDefaultCompanyLogo(name: string): string {
   const cleanName = (name || 'PT').trim();
   const initials = cleanName
