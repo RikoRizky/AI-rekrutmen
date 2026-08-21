@@ -184,8 +184,36 @@ export default function CompanyPortalPage() {
     initializeStorage();
     loadData();
 
+    const handleOpenEvent = () => {
+      const user = getCurrentUser();
+      const companies = getAllCompanies();
+      const comp = user?.companyId ? companies.find((c) => c.id === user.companyId) || companies[0] : companies[0];
+      if (comp) {
+        setEditName(comp.name);
+        setEditIndustry(comp.industry || '');
+        setEditAddress(comp.address || '');
+        setEditWebsite(comp.website || '');
+        setEditDescription(comp.description || '');
+        setEditLogo(sanitizeLogo(comp));
+        setSaveSuccessMsg(false);
+        setIsEditProfileOpen(true);
+      }
+    };
+
     window.addEventListener(REFRESH_EVENT, loadData);
-    return () => window.removeEventListener(REFRESH_EVENT, loadData);
+    window.addEventListener('smartrecruit_open_company_edit', handleOpenEvent);
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('edit') === 'true') {
+        handleOpenEvent();
+      }
+    }
+
+    return () => {
+      window.removeEventListener(REFRESH_EVENT, loadData);
+      window.removeEventListener('smartrecruit_open_company_edit', handleOpenEvent);
+    };
   }, []);
 
   // Filter applicants for the selected job

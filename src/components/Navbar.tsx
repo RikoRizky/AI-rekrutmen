@@ -280,8 +280,13 @@ export default function Navbar() {
                           <span>Dashboard Perusahaan</span>
                         </Link>
                         <Link
-                          href="/company"
-                          onClick={() => setMenuOpen(false)}
+                          href="/company?edit=true"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            if (typeof window !== 'undefined') {
+                              window.dispatchEvent(new CustomEvent('smartrecruit_open_company_edit'));
+                            }
+                          }}
                           className="flex items-center gap-2 px-4 py-2 text-slate-300 hover:bg-slate-800"
                         >
                           <Settings2 className="w-4 h-4 text-emerald-400" />

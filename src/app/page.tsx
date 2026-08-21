@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Job, Application, Company } from '@/lib/types';
+import { Job, Application, Company, User } from '@/lib/types';
 import {
   getAllJobs,
   getAllApplications,
   getAllCompanies,
+  getCurrentUser,
   initializeStorage,
   REFRESH_EVENT
 } from '@/lib/storage';
@@ -30,6 +31,7 @@ import {
 } from 'lucide-react';
 
 export default function HomePage() {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
@@ -42,6 +44,7 @@ export default function HomePage() {
       setJobs(getAllJobs());
       setCompanies(getAllCompanies());
       setApplications(getAllApplications());
+      setCurrentUser(getCurrentUser());
     };
     load();
 
@@ -156,13 +159,25 @@ export default function HomePage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredJobs.slice(0, 6).map((job) => (
-            <JobCard
-              key={job.id}
-              job={job}
-              applicantCount={applications.filter((a) => a.jobId === job.id).length}
-            />
-          ))}
+          {filteredJobs.slice(0, 6).map((job) => {
+            const hasApplied = currentUser
+              ? applications.some(
+                  (a) =>
+                    a.jobId === job.id &&
+                    (a.userId === currentUser.id ||
+                      a.applicantEmail.toLowerCase() === currentUser.email.toLowerCase())
+                )
+              : false;
+
+            return (
+              <JobCard
+                key={job.id}
+                job={job}
+                applicantCount={applications.filter((a) => a.jobId === job.id).length}
+                hasApplied={hasApplied}
+              />
+            );
+          })}
         </div>
       </section>
 
