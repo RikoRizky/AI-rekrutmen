@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
+import Script from 'next/script';
 import Navbar from '@/components/Navbar';
 
 const jakarta = Plus_Jakarta_Sans({
@@ -22,11 +23,11 @@ export default function RootLayout({
   return (
     <html lang="id" className={`${jakarta.variable} h-full antialiased dark`}>
       <head>
-        <script
-          type="text/javascript"
+        <Script
           src="https://app.sandbox.midtrans.com/snap/snap.js"
           data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || ''}
-        ></script>
+          strategy="afterInteractive"
+        />
       </head>
       <body className="min-h-full flex flex-col bg-slate-950 text-slate-100 font-sans">
         <Navbar />

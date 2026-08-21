@@ -12,69 +12,44 @@ enum Role {
   APPLICANT
 }
 
-enum JobType {
-  FULL_TIME
-  PART_TIME
-  CONTRACT
-  REMOTE
-  HYBRID
-}
-
-enum ApplicationStatus {
-  APPLIED
-  SCREENING
-  INTERVIEW
-  ACCEPTED
-  REJECTED
-}
-
-enum FitLevel {
-  TOP_MATCH
-  HIGH_MATCH
-  MODERATE_MATCH
-  LOW_MATCH
-}
-
-enum Recommendation {
-  STRONGLY_RECOMMENDED
-  INTERVIEW
-  CONSIDER
-  NOT_SUITABLE
-}
-
 model User {
-  id            String         @id @default(cuid())
-  name          String
-  email         String         @unique
-  password      String?
-  image         String?
-  role          Role           @default(APPLICANT)
-  phone         String?
-  headline      String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id               String         @id @default(cuid())
+  name             String
+  email            String         @unique
+  password         String?
+  image            String?        @db.LongText
+  role             String         @default("applicant") // 'super_admin' | 'company_admin' | 'applicant'
+  phone            String?
+  headline         String?
+  biodata          Json?
+  profileCompleted Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
-  companyId     String?
-  company       Company?       @relation(fields: [companyId], references: [id])
-  applications  Application[]
+  companyId        String?
+  company          Company?       @relation(fields: [companyId], references: [id])
+  applications     Application[]
 }
 
 model Company {
-  id            String         @id @default(cuid())
-  name          String
-  slug          String         @unique
-  logo          String?
-  description   String?        @db.Text
-  industry      String?
-  website       String?
-  address       String?
-  isVerified    Boolean        @default(false)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id                     String         @id @default(cuid())
+  name                   String
+  slug                   String         @unique
+  logo                   String?        @db.LongText
+  description            String?        @db.Text
+  industry               String?
+  website                String?
+  address                String?
+  isVerified             Boolean        @default(false)
+  activeSubscription     String?        @default("Starter")
+  subscriptionExpiresAt  DateTime?
+  jobQuota               Int            @default(10)
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
 
-  users         User[]
-  jobs          Job[]
-  subscriptions Subscription[]
+  users                  User[]
+  jobs                   Job[]
+  subscriptions          Subscription[]
 }
 
 model CompanyInvitationToken {
@@ -88,16 +63,16 @@ model CompanyInvitationToken {
 }
 
 model Subscription {
-  id              String       @id @default(cuid())
+  id              String        @id @default(cuid())
   companyId       String
-  company         Company      @relation(fields: [companyId], references: [id])
-  orderId         String       @unique
+  company         Company       @relation(fields: [companyId], references: [id])
+  orderId         String        @unique
   packageName     String
   amount          Float
   status          String
-  startDate       DateTime     @default(now())
+  startDate       DateTime      @default(now())
   endDate         DateTime
-  createdAt       DateTime     @default(now())
+  createdAt       DateTime      @default(now())
   transactions    Transaction[]
 }
 
@@ -106,10 +81,14 @@ model Transaction {
   orderId         String        @unique
   subscriptionId  String?
   subscription    Subscription? @relation(fields: [subscriptionId], references: [id])
+  companyEmail    String?
+  companyName     String?
+  packageName     String?
   amount          Float
   paymentType     String?
   status          String
   rawMidtransRes  Json?
+  paidAt          DateTime?
   createdAt       DateTime      @default(now())
 }
 
@@ -117,10 +96,13 @@ model Job {
   id              String         @id @default(cuid())
   companyId       String
   company         Company        @relation(fields: [companyId], references: [id])
+  companyName     String?
+  companyLogo     String?        @db.LongText
+  companyIndustry String?
   title           String
   department      String
   location        String
-  type            JobType        @default(FULL_TIME)
+  type            String         @default("Full-time")
   experienceLevel String
   salaryRange     String?
   description     String         @db.Text
@@ -128,7 +110,7 @@ model Job {
   responsibilities Json
   keySkills       Json
   minEducation    String?
-  status          String         @default("ACTIVE")
+  status          String         @default("active")
   deadline        DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
@@ -137,17 +119,26 @@ model Job {
 }
 
 model Application {
-  id              String            @id @default(cuid())
-  jobId           String
-  job             Job               @relation(fields: [jobId], references: [id])
-  userId          String
-  user            User              @relation(fields: [userId], references: [id])
-  status          ApplicationStatus @default(APPLIED)
-  appliedDate     DateTime          @default(now())
-  hrNotes         String?           @db.Text
+  id                String            @id @default(cuid())
+  jobId             String
+  job               Job               @relation(fields: [jobId], references: [id])
+  jobTitle          String?
+  jobDepartment     String?
+  companyId         String?
+  companyName       String?
+  userId            String
+  user              User              @relation(fields: [userId], references: [id])
+  applicantName     String?
+  applicantEmail    String?
+  applicantPhone    String?
+  applicantHeadline String?
+  applicantBiodata  Json?
+  status            String            @default("applied")
+  appliedDate       DateTime          @default(now())
+  hrNotes           String?           @db.Text
 
-  documents       Document[]
-  aiEvaluation    AiEvaluation?
+  documents         Document[]
+  aiEvaluation      AiEvaluation?
 }
 
 model Document {
@@ -156,31 +147,50 @@ model Document {
   application   Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   name          String
   type          String
-  fileUrl       String
+  fileUrl       String?      @db.LongText
+  size          Int?
   extractedText String?      @db.LongText
   uploadedAt    DateTime     @default(now())
 }
 
 model AiEvaluation {
-  id                  String          @id @default(cuid())
-  applicationId       String          @unique
-  application         Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  overallScore        Int
-  technicalScore      Int
-  experienceScore     Int
-  educationScore      Int
-  motivationScore     Int
-  cultureFitScore     Int?
-  fitLevel            FitLevel
-  recommendation      Recommendation
-  executiveSummary    String          @db.Text
-  recommendationReason String         @db.Text
-  strengths           Json
-  gaps                Json
-  matchedSkills       Json
-  missingSkills       Json
-  suggestedQuestions  Json
-  modelUsed           String
-  latencyMs           Int?
-  analyzedAt          DateTime        @default(now())
+  id                         String          @id @default(cuid())
+  applicationId              String          @unique
+  application                Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  overallScore               Int
+  technicalScore             Int
+  experienceScore            Int
+  educationScore             Int
+  motivationScore            Int
+  cultureFitScore            Int?
+  fitLevel                   String
+  recommendation             String
+  executiveSummary           String          @db.Text
+  recommendationReason       String          @db.Text
+  strengths                  Json
+  gaps                       Json
+  matchedSkills              Json
+  missingSkills              Json
+  additionalSkills           Json?
+  suggestedQuestions         Json?
+  detailedQuestions          Json?
+  riskFactors                Json?
+  isRealAi                   Boolean         @default(true)
+  modelUsed                  String
+  latencyMs                  Int?
+  analyzedAt                 DateTime        @default(now())
+}
+
+model AppSetting {
+  id                      String   @id @default("default")
+  geminiApiKey            String?  @db.Text
+  aiModel                 String   @default("gemini-2.5-flash")
+  minPassingScore         Int      @default(70)
+  enableInstantEvaluation Boolean  @default(true)
+  sendEmailNotifications  Boolean  @default(true)
+  autoScreening           Boolean  @default(true)
+  midtransServerKey       String?
+  midtransClientKey       String?
+  resendApiKey            String?
+  updatedAt               DateTime @updatedAt
 }

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { UserRole } from '@/lib/types';
-import { registerOrLoginUser, getAllUsers, initializeStorage } from '@/lib/storage';
+import { registerOrLoginUser, getAllUsers, initializeStorage, loginUserAsync, registerUserAsync, loginWithGoogleAsync } from '@/lib/storage';
 import Link from 'next/link';
 import {
   Building2,
@@ -18,7 +18,8 @@ import {
   ShieldCheck,
   X,
   CheckCircle2,
-  Globe
+  Globe,
+  Loader2
 } from 'lucide-react';
 
 function AuthContent() {
@@ -36,12 +37,27 @@ function AuthContent() {
   const [phone, setPhone] = useState('');
   const [headline, setHeadline] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Google OAuth custom modal state (when client ID not configured)
   const [showGoogleModal, setShowGoogleModal] = useState(false);
   const [googleName, setGoogleName] = useState('');
   const [googleEmail, setGoogleEmail] = useState('');
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
+
+  const redirectAfterAuth = (user: any) => {
+    if (user.role === 'applicant' && !user.profileCompleted) {
+      router.push('/user/profile');
+    } else if (callbackUrl && callbackUrl.startsWith('/')) {
+      router.push(callbackUrl);
+    } else if (user.role === 'super_admin') {
+      router.push('/super-admin');
+    } else if (user.role === 'company_admin') {
+      router.push('/company');
+    } else {
+      router.push('/jobs');
+    }
+  };
 
   useEffect(() => {
     initializeStorage();
@@ -59,22 +75,18 @@ function AuthContent() {
             headers: { Authorization: `Bearer ${accessToken}` }
           })
             .then((res) => res.json())
-            .then((googleUser) => {
+            .then(async (googleUser) => {
               if (googleUser && googleUser.email) {
-                const user = registerOrLoginUser(
+                const res = await loginWithGoogleAsync(
                   googleUser.name || googleUser.email.split('@')[0],
                   googleUser.email,
-                  'applicant',
-                  '',
-                  'Pencari Kerja / Talenta',
-                  undefined,
-                  undefined,
-                  'google-oauth-authenticated'
+                  googleUser.picture
                 );
-                if (googleUser.picture) {
-                  user.avatar = googleUser.picture;
+                if (res.success && res.user) {
+                  redirectAfterAuth(res.user);
+                } else {
+                  setErrorMsg(res.error || 'Gagal memproses akun Google.');
                 }
-                redirectAfterAuth(user);
               }
             })
             .catch((err) => {
@@ -88,20 +100,6 @@ function AuthContent() {
       }
     }
   }, []);
-
-  const redirectAfterAuth = (user: any) => {
-    if (user.role === 'applicant' && !user.profileCompleted) {
-      router.push('/user/profile');
-    } else if (callbackUrl && callbackUrl.startsWith('/')) {
-      router.push(callbackUrl);
-    } else if (user.role === 'super_admin') {
-      router.push('/super-admin');
-    } else if (user.role === 'company_admin') {
-      router.push('/company');
-    } else {
-      router.push('/jobs');
-    }
-  };
 
   const handleGoogleLogin = () => {
     const googleClientId =
@@ -119,26 +117,24 @@ function AuthContent() {
     }
   };
 
-  const handleConfirmGoogleModal = (e: React.FormEvent) => {
+  const handleConfirmGoogleModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!googleEmail.trim()) return;
 
     const chosenName = googleName.trim() || googleEmail.split('@')[0];
-    const user = registerOrLoginUser(
-      chosenName,
-      googleEmail.trim(),
-      'applicant',
-      '',
-      'Pencari Kerja / Talenta',
-      undefined,
-      undefined,
-      'google-account-login'
-    );
-    setShowGoogleModal(false);
-    redirectAfterAuth(user);
+    setIsLoadingGoogle(true);
+    const res = await loginWithGoogleAsync(chosenName, googleEmail.trim());
+    setIsLoadingGoogle(false);
+
+    if (res.success && res.user) {
+      setShowGoogleModal(false);
+      redirectAfterAuth(res.user);
+    } else {
+      setErrorMsg(res.error || 'Gagal memproses akun Google.');
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
 
@@ -155,26 +151,48 @@ function AuthContent() {
       return;
     }
 
-    const userName = name.trim() || email.split('@')[0];
-    
-    // Determine Role based on email
-    let role: UserRole = 'applicant';
-    if (email.includes('admin@smartrecruit') || email.includes('superadmin')) {
-      role = 'super_admin';
+    setIsSubmitting(true);
+
+    try {
+      if (mode === 'login') {
+        const res = await loginUserAsync(email.trim(), password.trim());
+        if (!res.success) {
+          setErrorMsg(res.error || 'Email atau kata sandi tidak sesuai.');
+          return;
+        }
+        if (res.user) {
+          redirectAfterAuth(res.user);
+        }
+      } else {
+        // Mode: Register
+        let role: UserRole = 'applicant';
+        if (email.includes('admin@smartrecruit') || email.includes('superadmin')) {
+          role = 'super_admin';
+        }
+
+        const res = await registerUserAsync(
+          name.trim(),
+          email.trim(),
+          password.trim(),
+          role,
+          phone.trim(),
+          headline.trim() || 'Pencari Kerja / Talenta'
+        );
+
+        if (!res.success) {
+          setErrorMsg(res.error || 'Gagal mendaftar akun.');
+          return;
+        }
+        if (res.user) {
+          redirectAfterAuth(res.user);
+        }
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Terjadi kendala saat memproses permintaan.';
+      setErrorMsg(message);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const user = registerOrLoginUser(
-      userName,
-      email.trim(),
-      role,
-      phone.trim(),
-      headline.trim(),
-      undefined,
-      undefined,
-      password.trim()
-    );
-
-    redirectAfterAuth(user);
   };
 
   const fillQuickAccount = (sampleEmail: string) => {
@@ -342,9 +360,17 @@ function AuthContent() {
 
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all shadow-md shadow-emerald-950/40"
+              disabled={isSubmitting}
+              className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all shadow-md shadow-emerald-950/40 disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {mode === 'login' ? 'Masuk ke Aplikasi' : 'Daftar Sebagai Pelamar'}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Memproses...</span>
+                </>
+              ) : (
+                <span>{mode === 'login' ? 'Masuk ke Aplikasi' : 'Daftar Sebagai Pelamar'}</span>
+              )}
             </button>
           </form>
 

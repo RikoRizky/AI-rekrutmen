@@ -20,9 +20,7 @@ import {
   SEED_COMPANIES,
   SEED_TRANSACTIONS,
   DEFAULT_SETTINGS,
-  SUBSCRIPTION_PACKAGES
 } from './seed-data';
-import { isTokenValid } from './token';
 
 const JOBS_KEY = 'smartrecruit_jobs';
 const APPLICATIONS_KEY = 'smartrecruit_applications';
@@ -41,25 +39,71 @@ export function triggerDataRefresh() {
   }
 }
 
-const STORAGE_VERSION_KEY = 'smartrecruit_storage_v2';
+let isSyncing = false;
+
+export async function syncFromDatabase() {
+  if (typeof window === 'undefined' || isSyncing) return;
+  isSyncing = true;
+  try {
+    const [jobsRes, companiesRes, appsRes, usersRes, trxRes, settingsRes] = await Promise.all([
+      fetch('/api/jobs').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch('/api/companies').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch('/api/applications').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch('/api/auth').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch('/api/transactions').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch('/api/settings').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]);
+
+    let modified = false;
+
+    if (jobsRes?.success && Array.isArray(jobsRes.jobs)) {
+      localStorage.setItem(JOBS_KEY, JSON.stringify(jobsRes.jobs));
+      modified = true;
+    }
+    if (companiesRes?.success && Array.isArray(companiesRes.companies)) {
+      localStorage.setItem(COMPANIES_KEY, JSON.stringify(companiesRes.companies));
+      modified = true;
+    }
+    if (appsRes?.success && Array.isArray(appsRes.applications)) {
+      localStorage.setItem(APPLICATIONS_KEY, JSON.stringify(appsRes.applications));
+      modified = true;
+    }
+    if (usersRes?.success && Array.isArray(usersRes.users)) {
+      localStorage.setItem(USERS_KEY, JSON.stringify(usersRes.users));
+      modified = true;
+
+      // Sync currentUser if exists
+      const currentUser = getCurrentUser();
+      if (currentUser) {
+        const found = usersRes.users.find((u: User) => u.id === currentUser.id || u.email.toLowerCase() === currentUser.email.toLowerCase());
+        if (found) {
+          localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(found));
+        }
+      }
+    }
+    if (trxRes?.success && Array.isArray(trxRes.transactions)) {
+      localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(trxRes.transactions));
+      modified = true;
+    }
+    if (settingsRes?.success && settingsRes.settings) {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settingsRes.settings));
+      modified = true;
+    }
+
+    if (modified) {
+      triggerDataRefresh();
+    }
+  } catch (e) {
+    console.error('Error syncing data from MySQL:', e);
+  } finally {
+    isSyncing = false;
+  }
+}
 
 export function initializeStorage() {
   if (typeof window === 'undefined') return;
 
-  const currentVersion = localStorage.getItem(STORAGE_VERSION_KEY);
-  if (currentVersion !== '2.1') {
-    // Reset/migrate to new 3-role multi-tenant seed data
-    localStorage.setItem(COMPANIES_KEY, JSON.stringify(SEED_COMPANIES));
-    localStorage.setItem(JOBS_KEY, JSON.stringify(SEED_JOBS));
-    localStorage.setItem(APPLICATIONS_KEY, JSON.stringify(SEED_APPLICATIONS));
-    localStorage.setItem(USERS_KEY, JSON.stringify(SEED_USERS));
-    localStorage.removeItem(CURRENT_USER_KEY);
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(DEFAULT_SETTINGS));
-    localStorage.setItem(STORAGE_VERSION_KEY, '3.0');
-    triggerDataRefresh();
-    return;
-  }
-
+  // Set default initial cache if empty
   if (!localStorage.getItem(COMPANIES_KEY)) {
     localStorage.setItem(COMPANIES_KEY, JSON.stringify(SEED_COMPANIES));
   }
@@ -81,6 +125,9 @@ export function initializeStorage() {
   if (!localStorage.getItem(SETTINGS_KEY)) {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(DEFAULT_SETTINGS));
   }
+
+  // Trigger background sync from MySQL database
+  syncFromDatabase();
 }
 
 // --- USER & AUTH ---
@@ -112,13 +159,122 @@ export function getAllUsers(): User[] {
   if (typeof window === 'undefined') return SEED_USERS;
   const stored = localStorage.getItem(USERS_KEY);
   if (!stored) {
-    initializeStorage();
     return SEED_USERS;
   }
   try {
     return JSON.parse(stored);
   } catch {
     return SEED_USERS;
+  }
+}
+
+export async function loginUserAsync(
+  email: string,
+  password: string
+): Promise<{ success: boolean; error?: string; user?: User }> {
+  try {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'login', email, password })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { success: false, error: data.error || 'Gagal masuk. Periksa email dan password Anda.' };
+    }
+
+    if (data.user) {
+      setCurrentUser(data.user);
+      // Update local users cache
+      const users = getAllUsers();
+      const idx = users.findIndex((u) => u.id === data.user.id || u.email.toLowerCase() === data.user.email.toLowerCase());
+      if (idx !== -1) {
+        users[idx] = data.user;
+      } else {
+        users.push(data.user);
+      }
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(USERS_KEY, JSON.stringify(users));
+      }
+    }
+    return { success: true, user: data.user };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Terjadi kendala jaringan saat login';
+    return { success: false, error: message };
+  }
+}
+
+export async function registerUserAsync(
+  name: string,
+  email: string,
+  password: string,
+  role: UserRole = 'applicant',
+  phone: string = '',
+  headline: string = ''
+): Promise<{ success: boolean; error?: string; user?: User }> {
+  try {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'register', name, email, password, role, phone, headline })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { success: false, error: data.error || 'Gagal mendaftar akun.' };
+    }
+
+    if (data.user) {
+      setCurrentUser(data.user);
+      const users = getAllUsers();
+      users.push(data.user);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(USERS_KEY, JSON.stringify(users));
+      }
+    }
+    return { success: true, user: data.user };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Terjadi kendala jaringan saat mendaftar';
+    return { success: false, error: message };
+  }
+}
+
+export async function loginWithGoogleAsync(
+  name: string,
+  email: string,
+  avatarUrl?: string
+): Promise<{ success: boolean; error?: string; user?: User }> {
+  try {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'google_auth', name, email, role: 'applicant' })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { success: false, error: data.error || 'Gagal autentikasi dengan akun Google.' };
+    }
+
+    const finalUser = {
+      ...data.user,
+      avatar: avatarUrl || data.user.avatar
+    };
+
+    setCurrentUser(finalUser);
+    const users = getAllUsers();
+    const idx = users.findIndex((u) => u.id === finalUser.id || u.email.toLowerCase() === finalUser.email.toLowerCase());
+    if (idx !== -1) {
+      users[idx] = finalUser;
+    } else {
+      users.push(finalUser);
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    }
+
+    return { success: true, user: finalUser };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Gagal login via Google';
+    return { success: false, error: message };
   }
 }
 
@@ -137,6 +293,11 @@ export function registerOrLoginUser(
 
   if (existing) {
     setCurrentUser(existing);
+    fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'google_auth', name, email, password, role, phone, headline, companyId, companyName })
+    }).catch(console.error);
     return existing;
   }
 
@@ -163,6 +324,17 @@ export function registerOrLoginUser(
   users.push(newUser);
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
   setCurrentUser(newUser);
+
+  fetch('/api/auth', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'register', ...newUser })
+  }).then(r => r.json()).then(res => {
+    if (res?.user) {
+      setCurrentUser(res.user);
+    }
+  }).catch(console.error);
+
   return newUser;
 }
 
@@ -172,7 +344,6 @@ export function getAllCompanies(): Company[] {
   if (typeof window === 'undefined') return SEED_COMPANIES;
   const stored = localStorage.getItem(COMPANIES_KEY);
   if (!stored) {
-    initializeStorage();
     return SEED_COMPANIES;
   }
   try {
@@ -260,6 +431,14 @@ export function updateCompany(id: string, updateData: Partial<Company>): Company
   }
 
   triggerDataRefresh();
+
+  // Asynchronously save to MySQL database
+  fetch('/api/companies', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, ...updateData })
+  }).catch(console.error);
+
   return updated;
 }
 
@@ -297,6 +476,20 @@ export function registerNewCompany(
   }
 
   triggerDataRefresh();
+
+  // Asynchronously save to MySQL database
+  fetch('/api/companies', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...companyData,
+      adminName: adminUser.name,
+      adminEmail: adminUser.email,
+      adminPhone: adminUser.phone,
+      adminPassword: adminUser.password,
+    })
+  }).catch(console.error);
+
   return { company: newCompany, user };
 }
 
@@ -317,6 +510,12 @@ export function addInvitationToken(token: CompanyInvitationToken) {
   const tokens = getAllTokens();
   tokens.push(token);
   localStorage.setItem(TOKENS_KEY, JSON.stringify(tokens));
+  
+  fetch('/api/tokens', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(token)
+  }).catch(console.error);
 }
 
 export function findInvitationToken(tokenStr: string): CompanyInvitationToken | null {
@@ -331,6 +530,13 @@ export function consumeInvitationToken(tokenStr: string): boolean {
     tokens[idx].isUsed = true;
     localStorage.setItem(TOKENS_KEY, JSON.stringify(tokens));
     triggerDataRefresh();
+
+    fetch('/api/tokens', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'consume', token: tokenStr })
+    }).catch(console.error);
+
     return true;
   }
   return false;
@@ -342,7 +548,6 @@ export function getAllTransactions(): Transaction[] {
   if (typeof window === 'undefined') return SEED_TRANSACTIONS;
   const stored = localStorage.getItem(TRANSACTIONS_KEY);
   if (!stored) {
-    initializeStorage();
     return SEED_TRANSACTIONS;
   }
   try {
@@ -357,6 +562,13 @@ export function addTransaction(transaction: Transaction) {
   transactions.unshift(transaction);
   localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(transactions));
   triggerDataRefresh();
+
+  // Asynchronously save to MySQL database
+  fetch('/api/transactions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(transaction)
+  }).catch(console.error);
 }
 
 // --- JOBS ---
@@ -365,7 +577,6 @@ export function getAllJobs(): Job[] {
   if (typeof window === 'undefined') return SEED_JOBS;
   const stored = localStorage.getItem(JOBS_KEY);
   if (!stored) {
-    initializeStorage();
     return SEED_JOBS;
   }
   try {
@@ -395,6 +606,14 @@ export function createJob(jobData: Omit<Job, 'id' | 'createdAt'>): Job {
   jobs.unshift(newJob);
   localStorage.setItem(JOBS_KEY, JSON.stringify(jobs));
   triggerDataRefresh();
+
+  // Asynchronously save to MySQL database
+  fetch('/api/jobs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(newJob)
+  }).catch(console.error);
+
   return newJob;
 }
 
@@ -406,6 +625,14 @@ export function updateJob(id: string, updates: Partial<Job>): Job | null {
   jobs[index] = { ...jobs[index], ...updates };
   localStorage.setItem(JOBS_KEY, JSON.stringify(jobs));
   triggerDataRefresh();
+
+  // Asynchronously update in MySQL database
+  fetch(`/api/jobs/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates)
+  }).catch(console.error);
+
   return jobs[index];
 }
 
@@ -415,6 +642,12 @@ export function deleteJob(id: string): boolean {
   if (filtered.length !== jobs.length) {
     localStorage.setItem(JOBS_KEY, JSON.stringify(filtered));
     triggerDataRefresh();
+
+    // Asynchronously delete in MySQL database
+    fetch(`/api/jobs/${id}`, {
+      method: 'DELETE'
+    }).catch(console.error);
+
     return true;
   }
   return false;
@@ -426,7 +659,6 @@ export function getAllApplications(): Application[] {
   if (typeof window === 'undefined') return SEED_APPLICATIONS;
   const stored = localStorage.getItem(APPLICATIONS_KEY);
   if (!stored) {
-    initializeStorage();
     return SEED_APPLICATIONS;
   }
   try {
@@ -469,6 +701,14 @@ export function updateUserBiodata(userId: string, biodata: UserBiodata, avatarUr
   }
 
   triggerDataRefresh();
+
+  // Asynchronously save to MySQL database
+  fetch('/api/auth/profile', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, biodata, avatarUrl })
+  }).catch(console.error);
+
   return users[index];
 }
 
@@ -477,7 +717,6 @@ export function submitApplication(
 ): Application {
   const applications = getAllApplications();
   
-  // Try to auto-attach user's biodata and AI background report if available
   let applicantBiodata = applicationData.applicantBiodata;
   if (!applicantBiodata && applicationData.userId) {
     const user = getAllUsers().find((u) => u.id === applicationData.userId);
@@ -497,6 +736,14 @@ export function submitApplication(
   applications.unshift(newApplication);
   localStorage.setItem(APPLICATIONS_KEY, JSON.stringify(applications));
   triggerDataRefresh();
+
+  // Asynchronously save application + documents + AI evaluation to MySQL database
+  fetch('/api/applications', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(newApplication)
+  }).then(r => r.json()).catch(console.error);
+
   return newApplication;
 }
 
@@ -513,6 +760,14 @@ export function updateApplicationStatus(id: string, status: ApplicationStatus, h
 
   localStorage.setItem(APPLICATIONS_KEY, JSON.stringify(applications));
   triggerDataRefresh();
+
+  // Asynchronously save to MySQL database
+  fetch(`/api/applications/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status, hrNotes })
+  }).catch(console.error);
+
   return applications[index];
 }
 
@@ -522,7 +777,6 @@ export function getSettings(): AppSettings {
   if (typeof window === 'undefined') return DEFAULT_SETTINGS;
   const stored = localStorage.getItem(SETTINGS_KEY);
   if (!stored) {
-    initializeStorage();
     return DEFAULT_SETTINGS;
   }
   try {
@@ -536,4 +790,11 @@ export function saveSettings(settings: AppSettings) {
   if (typeof window === 'undefined') return;
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   triggerDataRefresh();
+
+  // Asynchronously save to MySQL database
+  fetch('/api/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings)
+  }).catch(console.error);
 }
