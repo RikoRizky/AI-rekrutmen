@@ -69,7 +69,7 @@ export default function UserApplicationsPage() {
         };
       case 'rejected':
         return {
-          label: 'Belum Sesuai Kriteria',
+          label: 'Ditolak',
           bg: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
           icon: AlertCircle
         };

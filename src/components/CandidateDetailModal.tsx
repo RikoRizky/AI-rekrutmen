@@ -661,13 +661,19 @@ export default function CandidateDetailModal({
                             ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
                             : 'bg-teal-500/20 text-teal-300 border border-teal-500/40'
                     }`}>
-                      {currentStatus === 'applied' ? 'Lamaran Terkirim' : currentStatus === 'screening' ? 'Skrining Berkas & AI' : currentStatus === 'interview' ? 'Tahap Wawancara' : currentStatus === 'accepted' ? 'Selamat! Lamaran Diterima' : 'Belum Sesuai'}
+                      {currentStatus === 'applied' ? 'Lamaran Terkirim' : currentStatus === 'screening' ? 'Skrining Berkas & AI' : currentStatus === 'interview' ? 'Tahap Wawancara' : currentStatus === 'accepted' ? 'Selamat! Lamaran Diterima' : 'Ditolak'}
                     </span>
                   </div>
 
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    Tim rekruter perusahaan akan meninjau kualifikasi dan berkas lamaran Anda. Anda akan menerima notifikasi jika terpilih untuk melangkah ke tahapan berikutnya.
-                  </p>
+                  {currentStatus === 'rejected' ? (
+                    <p className="text-xs text-rose-300/90 leading-relaxed">
+                      Mohon maaf, lamaran Anda ditolak dan belum dapat diproses ke tahap berikutnya untuk posisi ini. Tetap semangat dan silakan eksplorasi peluang karir lainnya di SmartRecruit.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Tim rekruter perusahaan akan meninjau kualifikasi dan berkas lamaran Anda. Anda akan menerima notifikasi jika terpilih untuk melangkah ke tahapan berikutnya.
+                    </p>
+                  )}
                 </div>
               ) : (
                 /* HR Controls View */

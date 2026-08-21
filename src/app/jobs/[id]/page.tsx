@@ -410,7 +410,15 @@ export default function JobDetailPage() {
                 <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400 font-medium">Status Lamaran:</span>
-                    <span className="font-bold text-emerald-400 capitalize px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                    <span className={`font-bold capitalize px-2.5 py-1 rounded-lg ${
+                      existingApplication.status === 'accepted'
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        : existingApplication.status === 'rejected'
+                        ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                        : existingApplication.status === 'interview'
+                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    }`}>
                       {existingApplication.status === 'applied'
                         ? 'Terkirim & Menunggu Review'
                         : existingApplication.status === 'screening'
@@ -419,7 +427,7 @@ export default function JobDetailPage() {
                             ? 'Tahap Wawancara'
                             : existingApplication.status === 'accepted'
                               ? 'Selamat! Diterima'
-                              : 'Belum Sesuai'}
+                              : 'Ditolak'}
                     </span>
                   </div>
 
