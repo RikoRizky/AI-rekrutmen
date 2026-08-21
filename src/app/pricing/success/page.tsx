@@ -15,7 +15,7 @@ import {
   Home
 } from 'lucide-react';
 import { createInvitationToken } from '@/lib/token';
-import { addInvitationToken, addTransaction } from '@/lib/storage';
+import { addInvitationToken, addTransaction, findInvitationToken, initializeStorage } from '@/lib/storage';
 
 function PaymentSuccessContent() {
   const searchParams = useSearchParams();
@@ -25,6 +25,7 @@ function PaymentSuccessContent() {
   const [packageName, setPackageName] = useState<string>('');
   const [priceFormatted, setPriceFormatted] = useState<string>('');
   const [activationUrl, setActivationUrl] = useState<string>('');
+  const [isTokenConsumed, setIsTokenConsumed] = useState<boolean>(false);
 
   useEffect(() => {
     // 1. Confetti trigger
@@ -111,6 +112,25 @@ function PaymentSuccessContent() {
       resolvedToken = tokenObj.token;
     }
 
+    // Check if token was already consumed
+    const existingTok = findInvitationToken(resolvedToken);
+    if (existingTok && existingTok.isUsed) {
+      setIsTokenConsumed(true);
+    } else {
+      fetch('/api/company/verify-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: resolvedToken })
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data && !data.valid && data.reason?.includes('sudah pernah digunakan')) {
+            setIsTokenConsumed(true);
+          }
+        })
+        .catch(() => {});
+    }
+
     setOrderId(paramOrderId);
     setEmail(resolvedEmail);
     setPackageName(resolvedPkg);
@@ -170,19 +190,36 @@ function PaymentSuccessContent() {
             {email}
           </div>
           <p className="text-slate-400 text-[10px] sm:text-[11px] leading-relaxed pt-1">
-            Klik link tersebut untuk membuat akun Perusahaan Anda. Link pendaftaran ini akan terus berlaku sampai Anda berhasil membuat akun. Periksa folder Spam jika tidak menemukannya di inbox utama.
+            Klik link tersebut untuk membuat akun Perusahaan Anda. Link pendaftaran ini adalah <strong>One-Time Link</strong> yang hanya dapat digunakan 1 kali untuk membuat akun.
           </p>
         </div>
 
         {/* Action Buttons */}
         <div className="space-y-3 pt-2 relative z-10">
-          <Link
-            href={activationUrl}
-            className="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xl shadow-emerald-950/60 transition-all hover:scale-[1.01]"
-          >
-            <span>Aktivasi & Buat Akun Perusahaan Sekarang</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+          {isTokenConsumed ? (
+            <div className="space-y-3">
+              <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center justify-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>Akun Perusahaan Telah Berhasil Dibuat & Aktif</span>
+              </div>
+              <Link
+                href="/company"
+                className="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xl shadow-emerald-950/60 transition-all hover:scale-[1.01]"
+              >
+                <Building2 className="w-4 h-4" />
+                <span>Buka Portal Dashboard Perusahaan</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          ) : (
+            <Link
+              href={activationUrl}
+              className="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xl shadow-emerald-950/60 transition-all hover:scale-[1.01]"
+            >
+              <span>Aktivasi & Buat Akun Perusahaan Sekarang</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          )}
 
           <Link
             href="/"

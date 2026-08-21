@@ -2,7 +2,13 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { findInvitationToken, consumeInvitationToken, addInvitationToken, registerNewCompany, initializeStorage, getDefaultCompanyLogo } from '@/lib/storage';
+import {
+  findInvitationToken,
+  consumeInvitationToken,
+  registerNewCompany,
+  initializeStorage,
+  getDefaultCompanyLogo
+} from '@/lib/storage';
 import { isTokenValid } from '@/lib/token';
 import Link from 'next/link';
 import {
@@ -28,7 +34,13 @@ function CompanyRegisterContent() {
 
   const [isValidating, setIsValidating] = useState(true);
   const [tokenError, setTokenError] = useState<string | null>(null);
-  const [tokenData, setTokenData] = useState<any>(null);
+  const [tokenData, setTokenData] = useState<{
+    id?: string;
+    token: string;
+    email?: string;
+    packageType?: string;
+    isUsed?: boolean;
+  } | null>(null);
 
   // Form State
   const [companyName, setCompanyName] = useState('');
@@ -44,57 +56,75 @@ function CompanyRegisterContent() {
 
   useEffect(() => {
     initializeStorage();
+
     if (!tokenStr) {
-      setTokenError('Token pendaftaran tidak ditemukan. Pastikan Anda membuka link dari email konfirmasi Midtrans.');
+      setTokenError('Token pendaftaran tidak ditemukan. Pastikan Anda membuka link dari email konfirmasi pembayaran.');
       setIsValidating(false);
       return;
     }
 
-    // Check token in storage / database
-    const foundToken = findInvitationToken(tokenStr);
-    if (foundToken) {
-      if (foundToken.isUsed) {
-        setTokenError('Link aktivasi pendaftaran ini sudah pernah digunakan untuk mendaftar akun perusahaan dan sekarang sudah hangus.');
+    // 1. Check local storage first
+    const localToken = findInvitationToken(tokenStr);
+    if (localToken && localToken.isUsed) {
+      setTokenError('Link aktivasi pendaftaran ini sudah pernah digunakan untuk mendaftar akun perusahaan dan sekarang sudah hangus (One-Time Link).');
+      setIsValidating(false);
+      return;
+    }
+
+    // 2. Query server database via /api/company/verify-token
+    const verifyOnServer = async () => {
+      try {
+        const res = await fetch('/api/company/verify-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: tokenStr })
+        });
+
+        const data = await res.json();
+
+        if (!data.valid) {
+          setTokenError(data.reason || 'Link pendaftaran tidak valid atau telah kedaluwarsa.');
+          setIsValidating(false);
+          return;
+        }
+
+        const validToken = data.token || localToken || {
+          token: tokenStr,
+          email: emailParam,
+          packageType: 'Enterprise Corporation',
+          isUsed: false
+        };
+
+        setTokenData(validToken);
+        if (validToken.email) {
+          setAdminEmail(validToken.email);
+        } else if (emailParam) {
+          setAdminEmail(emailParam);
+        }
         setIsValidating(false);
-        return;
+      } catch (err) {
+        console.warn('Verify token server error, checking local fallback:', err);
+        if (localToken) {
+          const validity = isTokenValid(localToken);
+          if (!validity.valid) {
+            setTokenError(validity.reason || 'Link pendaftaran tidak valid atau telah kedaluwarsa.');
+            setIsValidating(false);
+            return;
+          }
+          setTokenData(localToken);
+          if (localToken.email) setAdminEmail(localToken.email);
+          setIsValidating(false);
+        } else {
+          setTokenError('Gagal memverifikasi keaslian token pendaftaran ke server.');
+          setIsValidating(false);
+        }
       }
+    };
 
-      const validity = isTokenValid(foundToken);
-      if (!validity.valid) {
-        setTokenError(validity.reason || 'Link pendaftaran tidak valid atau telah kedaluwarsa.');
-        setIsValidating(false);
-        return;
-      }
-
-      setTokenData(foundToken);
-      if (foundToken.email) setAdminEmail(foundToken.email);
-      setIsValidating(false);
-      return;
-    }
-
-    // Fallback jika token format cptk_ baru pertama kali diakses
-    if (tokenStr.startsWith('cptk_')) {
-      const newToken = {
-        id: `token-${Date.now()}`,
-        token: tokenStr,
-        email: emailParam || 'admin@perusahaan.com',
-        packageType: 'Professional HR ATS',
-        isUsed: false,
-        expiresAt: new Date(Date.now() + 86400000).toISOString(),
-        createdAt: new Date().toISOString()
-      };
-      addInvitationToken(newToken);
-      setTokenData(newToken);
-      if (emailParam) setAdminEmail(emailParam);
-      setIsValidating(false);
-      return;
-    }
-
-    setTokenError('Token tidak valid atau tidak terdaftar di sistem.');
-    setIsValidating(false);
+    verifyOnServer();
   }, [tokenStr, emailParam]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!companyName.trim() || !adminName.trim() || !adminEmail.trim()) {
       alert('Harap isi semua data bertanda bintang.');
@@ -104,12 +134,42 @@ function CompanyRegisterContent() {
     setIsSubmitting(true);
 
     try {
-      // Consume token so it cannot be used again
+      // 1. Consume token locally
       consumeInvitationToken(tokenStr);
 
-      // Register company & company admin user
+      const logoUrl = getDefaultCompanyLogo(companyName);
+
+      // 2. Submit to server API (/api/company/register) to save in MySQL and mark token isUsed in DB
+      try {
+        const res = await fetch('/api/company/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: tokenStr,
+            companyName,
+            industry,
+            address,
+            website,
+            description,
+            adminName,
+            adminEmail,
+            adminPhone,
+            password,
+            logo: logoUrl
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok && data.error) {
+          throw new Error(data.error);
+        }
+      } catch (apiErr) {
+        console.warn('API company register warning:', apiErr);
+      }
+
+      // 3. Register in local storage state
       const slug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      const { company, user } = registerNewCompany(
+      registerNewCompany(
         {
           name: companyName,
           slug,
@@ -117,10 +177,10 @@ function CompanyRegisterContent() {
           website,
           address,
           description,
-          activeSubscription: tokenData?.packageType || 'Professional',
+          activeSubscription: tokenData?.packageType || 'Enterprise Corporation',
           subscriptionExpiresAt: new Date(Date.now() + 30 * 86400000).toISOString(),
           jobQuota: 20,
-          logo: getDefaultCompanyLogo(companyName)
+          logo: logoUrl
         },
         {
           name: adminName,
@@ -130,11 +190,12 @@ function CompanyRegisterContent() {
         }
       );
 
-      // Redirect directly to company portal
+      // 4. Redirect directly to company portal
       router.push('/company');
-    } catch (err) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Gagal menyelesaikan registrasi perusahaan.';
       console.error('Registration error:', err);
-      alert('Gagal menyelesaikan registrasi perusahaan.');
+      alert(message);
       setIsSubmitting(false);
     }
   };
@@ -150,16 +211,23 @@ function CompanyRegisterContent() {
 
   if (tokenError) {
     return (
-      <div className="max-w-md mx-auto my-16 p-8 rounded-3xl bg-slate-900 border border-slate-800 text-center space-y-4">
-        <div className="w-14 h-14 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto">
+      <div className="max-w-md mx-auto my-16 p-8 rounded-3xl bg-slate-900 border border-rose-500/30 text-center space-y-4 shadow-2xl">
+        <div className="w-14 h-14 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto shadow-md">
           <AlertTriangle className="w-7 h-7" />
         </div>
-        <h2 className="text-xl font-bold text-white">Akses Link Tidak Valid</h2>
-        <p className="text-xs text-slate-400 leading-relaxed">{tokenError}</p>
-        <div className="pt-4">
+        <h2 className="text-xl font-bold text-white">Akses Link Tidak Valid / Hangus</h2>
+        <p className="text-xs text-slate-300 leading-relaxed">{tokenError}</p>
+        <div className="pt-4 flex flex-col gap-2">
+          <Link
+            href="/auth"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md transition-colors"
+          >
+            <span>Masuk ke Akun Perusahaan Anda</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
           <Link
             href="/pricing"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
           >
             <span>Kembali ke Halaman Paket</span>
           </Link>

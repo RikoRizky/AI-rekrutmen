@@ -63,7 +63,6 @@ export async function createMidtransSnapTransaction({
     if (!response.ok) {
       const errBody = await response.text();
       console.warn('Midtrans API direct call fallback:', errBody);
-      // Fallback mock snap token if sandbox keys aren't configured yet
       return {
         token: `mock-snap-${Date.now()}`,
         redirect_url: `https://app.sandbox.midtrans.com/snap/v2/vtweb/mock-${orderId}`
@@ -78,5 +77,54 @@ export async function createMidtransSnapTransaction({
       token: `sim-snap-${Date.now()}`,
       redirect_url: `https://app.sandbox.midtrans.com/snap/v2/vtweb/sim-${orderId}`
     };
+  }
+}
+
+export async function checkMidtransTransactionStatus(orderId: string): Promise<{
+  status: string;
+  transactionStatus?: string;
+  fraudStatus?: string;
+  paymentType?: string;
+  grossAmount?: string;
+  vaNumbers?: Array<{ bank: string; va_number: string }>;
+  billKey?: string;
+  billerCode?: string;
+}> {
+  const serverKey = (process.env.MIDTRANS_SERVER_KEY || '').trim();
+  const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
+
+  const baseUrl = isProduction
+    ? `https://api.midtrans.com/v2/${orderId}/status`
+    : `https://api.sandbox.midtrans.com/v2/${orderId}/status`;
+
+  const authHeader = `Basic ${Buffer.from(`${serverKey}:`).toString('base64')}`;
+
+  try {
+    const response = await fetch(baseUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': authHeader
+      }
+    });
+
+    if (!response.ok) {
+      return { status: 'not_found' };
+    }
+
+    const data = await response.json();
+    return {
+      status: data.status_code || '200',
+      transactionStatus: data.transaction_status,
+      fraudStatus: data.fraud_status,
+      paymentType: data.payment_type,
+      grossAmount: data.gross_amount,
+      vaNumbers: data.va_numbers,
+      billKey: data.bill_key,
+      billerCode: data.biller_code
+    };
+  } catch (err) {
+    console.error('Check Midtrans Status Error:', err);
+    return { status: 'error' };
   }
 }

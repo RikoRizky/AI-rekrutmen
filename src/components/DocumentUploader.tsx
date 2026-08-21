@@ -69,7 +69,7 @@ export default function DocumentUploader({
     setExtractingMap((prev) => ({ ...prev, [type]: true }));
 
     try {
-      const extractedText = await extractTextFromFile(file);
+      const extractedText = await extractTextFromFile(file, type);
 
       const newDoc: DocumentAttachment = {
         id: docId,

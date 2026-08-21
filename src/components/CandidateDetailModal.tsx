@@ -30,7 +30,9 @@ import {
   ExternalLink,
   Globe,
   AlertTriangle,
-  Award
+  Award,
+  Copy,
+  FileCode
 } from 'lucide-react';
 
 interface CandidateDetailModalProps {
@@ -44,7 +46,7 @@ export default function CandidateDetailModal({
   application,
   onClose,
   onStatusUpdated,
-  isApplicantView
+  isApplicantView = false
 }: CandidateDetailModalProps) {
   const currentUser = getCurrentUser();
   const isApplicant = isApplicantView || currentUser?.role === 'applicant';
@@ -53,6 +55,7 @@ export default function CandidateDetailModal({
   const [currentStatus, setCurrentStatus] = useState<ApplicationStatus>(application.status);
   const [hrNotes, setHrNotes] = useState<string>(application.hrNotes || '');
   const [isSaving, setIsSaving] = useState(false);
+  const [copiedDocId, setCopiedDocId] = useState<string | null>(null);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   const evalRes = application.aiEvaluation;
@@ -604,29 +607,91 @@ export default function CandidateDetailModal({
           {/* TAB 4: DOCUMENTS & EXTRACTED CV TEXT */}
           {activeTab === 'documents' && (
             <div className="space-y-4">
-              <div className="space-y-3">
-                {application.documents?.map((doc) => (
-                  <div key={doc.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <FileText className="w-5 h-5 text-emerald-400" />
-                        <div>
-                          <p className="font-bold text-white text-xs">{doc.name}</p>
-                          <p className="text-[10px] text-slate-400">
-                            Tipe: <span className="uppercase font-semibold text-emerald-400">{doc.type}</span> • Ukuran: {(doc.size / 1024).toFixed(1)} KB
-                          </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-white text-xs flex items-center gap-2">
+                    <FileCode className="w-4 h-4 text-emerald-400" />
+                    <span>Berkas Dokumen & Hasil Ekstraksi Teks Lengkap</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Teks di bawah ini adalah data mentah hasil pembacaan AI Gemini dari berkas yang diunggah kandidat.
+                  </p>
+                </div>
+                <span className="text-[11px] text-slate-400 font-mono bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+                  {application.documents?.length || 0} Berkas Terlampir
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                {application.documents?.map((doc) => {
+                  const isCopied = copiedDocId === doc.id;
+                  const charCount = doc.extractedText?.length || 0;
+
+                  return (
+                    <div key={doc.id} className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3.5 shadow-sm">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+                            {doc.type === 'cv' ? (
+                              <FileText className="w-5 h-5" />
+                            ) : doc.type === 'cover_letter' ? (
+                              <Mail className="w-5 h-5" />
+                            ) : (
+                              <Award className="w-5 h-5" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-bold text-white text-xs">{doc.name}</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              Tipe Dokumen: <span className="uppercase font-bold text-emerald-400">{doc.type}</span> • Ukuran: <span className="font-mono text-slate-300">{(doc.size / 1024).toFixed(1)} KB</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 self-end sm:self-center">
+                          <span className="text-[10px] text-slate-400 font-mono bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
+                            {charCount.toLocaleString('id-ID')} Karakter
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(doc.extractedText || '');
+                              setCopiedDocId(doc.id);
+                              setTimeout(() => setCopiedDocId(null), 2000);
+                            }}
+                            className="px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-[11px] font-semibold flex items-center gap-1.5 transition-colors"
+                            title="Salin isi teks ekstraksi ke clipboard"
+                          >
+                            {isCopied ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                <span className="text-emerald-400">Tersalin!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5 text-slate-400" />
+                                <span>Salin Teks</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px] text-slate-400">
+                          <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Isi Teks Dokumen yang Dibaca AI:</span>
+                          </span>
+                        </div>
+                        <div className="max-h-64 overflow-y-auto p-4 rounded-xl bg-slate-900 border border-slate-800/90 text-xs text-slate-200 font-mono leading-relaxed whitespace-pre-wrap select-text scrollbar-thin scrollbar-thumb-slate-800">
+                          {doc.extractedText || 'Teks dokumen kosong atau tidak terbaca.'}
                         </div>
                       </div>
                     </div>
-
-                    <div className="pt-2 border-t border-slate-800">
-                      <span className="text-[11px] font-semibold text-slate-400 block mb-1">Hasil Ekstraksi Teks Berkas:</span>
-                      <div className="max-h-48 overflow-y-auto p-3 rounded-xl bg-slate-900 border border-slate-800 text-[11px] text-slate-300 font-mono whitespace-pre-line">
-                        {doc.extractedText}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

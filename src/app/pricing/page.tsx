@@ -27,7 +27,10 @@ import {
   Landmark,
   Wallet,
   ClipboardList,
-  FileEdit
+  FileEdit,
+  Copy,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 
 export default function PricingPage() {
@@ -47,6 +50,17 @@ export default function PricingPage() {
   const [isCreatingSnap, setIsCreatingSnap] = useState(false);
   const [isOpeningSnap, setIsOpeningSnap] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Pending Payment state for VA / Transfer / Unpaid transactions
+  const [pendingPaymentInfo, setPendingPaymentInfo] = useState<{
+    orderId: string;
+    paymentType?: string;
+    vaNumber?: string;
+    bank?: string;
+  } | null>(null);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [copiedVa, setCopiedVa] = useState(false);
 
   // Step 3: Activation Token State
   const [activationUrl, setActivationUrl] = useState<string>('');
@@ -145,6 +159,7 @@ export default function PricingPage() {
   // 3. Selesaikan Pembayaran via Midtrans Snap Popup langsung di aplikasi
   const handleOpenMidtransSnap = () => {
     setIsOpeningSnap(true);
+    setStatusMessage(null);
 
     const triggerPay = () => {
       const snap = (window as unknown as { snap?: { pay: (token: string, callbacks: Record<string, unknown>) => void } })?.snap;
@@ -156,16 +171,16 @@ export default function PricingPage() {
             handlePaymentFinalized();
           },
           onPending: function (result: unknown) {
-            console.log('[Midtrans Snap Pending]:', result);
-            handlePaymentFinalized();
+            console.log('[Midtrans Snap Pending - Waiting for Transfer]:', result);
+            handlePaymentPending(result);
           },
           onError: function (result: unknown) {
             console.error('[Midtrans Snap Error]:', result);
-            alert('Pembayaran mengalami kendala. Silakan coba kembali.');
+            alert('Pembayaran mengalami kendala atau ditolak. Silakan coba kembali.');
             setIsOpeningSnap(false);
           },
           onClose: function () {
-            console.log('[Midtrans Snap Popup Closed by User]');
+            console.log('[Midtrans Snap Popup Closed by User without completing payment]');
             setIsOpeningSnap(false);
           }
         });
@@ -187,6 +202,67 @@ export default function PricingPage() {
       script.setAttribute('data-client-key', clientKey);
       script.onload = () => triggerPay();
       document.body.appendChild(script);
+    }
+  };
+
+  // 3b. Saat user memilih Transfer Bank / VA / QRIS tapi belum bayar (Pending)
+  const handlePaymentPending = (result: any) => {
+    setIsOpeningSnap(false);
+    const targetOrderId = orderId || `SMARTRECRUIT-${Date.now()}`;
+    const vaNumber = result?.va_numbers?.[0]?.va_number || result?.bill_key || result?.permata_va_number || '';
+    const bank = result?.va_numbers?.[0]?.bank?.toUpperCase() || (result?.bill_key ? 'Mandiri Bill' : 'Transfer Bank');
+    const pType = result?.payment_type || 'bank_transfer';
+
+    setPendingPaymentInfo({
+      orderId: targetOrderId,
+      paymentType: pType,
+      vaNumber,
+      bank
+    });
+
+    // Simpan status transaksi sebagai 'pending' (BUKAN settlement)
+    addTransaction({
+      id: `trx-${Date.now()}`,
+      orderId: targetOrderId,
+      companyEmail: contactEmail,
+      companyName,
+      packageName: selectedPkg?.name || 'Enterprise Corporation',
+      amount: selectedPkg?.price || 0,
+      paymentType: pType,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    });
+  };
+
+  // 3c. Tombol Cek Status Pembayaran (Real-Time Verification)
+  const handleCheckPaymentStatus = async () => {
+    const targetOrderId = pendingPaymentInfo?.orderId || orderId;
+    if (!targetOrderId) return;
+
+    setIsCheckingStatus(true);
+    setStatusMessage(null);
+
+    try {
+      const res = await fetch(`/api/payment/status?order_id=${encodeURIComponent(targetOrderId)}`);
+      const data = await res.json();
+
+      if (data.isPaid && data.status === 'settlement') {
+        // Pembayaran sudah masuk!
+        const targetUrl = `/pricing/success?order_id=${encodeURIComponent(targetOrderId)}&email=${encodeURIComponent(contactEmail)}&pkg=${encodeURIComponent(selectedPkg?.name || '')}&price=${selectedPkg?.price || 0}&token=${data.token}`;
+        router.push(targetUrl);
+        return;
+      }
+
+      if (data.status === 'pending') {
+        setStatusMessage('Pembayaran belum terdeteksi. Silakan lakukan transfer dana sesuai nominal ke nomor Virtual Account / rekening.');
+      } else {
+        setStatusMessage(data.message || `Status transaksi saat ini: ${data.status || 'Menunggu pembayaran'}`);
+      }
+    } catch (err) {
+      console.warn('Check payment status error:', err);
+      setStatusMessage('Gagal memeriksa status ke Midtrans. Silakan coba beberapa saat lagi.');
+    } finally {
+      setIsCheckingStatus(false);
     }
   };
 
@@ -635,51 +711,133 @@ export default function PricingPage() {
                         Selesaikan Pembayaran
                       </h3>
                       <p className="text-xs sm:text-sm text-slate-400">
-                        Klik tombol di bawah untuk memilih metode pembayaran yang tersedia.
+                        Pilih metode pembayaran yang tersedia melalui gateway resmi Midtrans Snap.
                       </p>
                     </div>
 
-                    {/* Visual 3 Method Cards */}
-                    <div className="grid grid-cols-3 gap-3 py-2">
-                      <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 flex flex-col items-center justify-center gap-2">
-                        <Landmark className="w-6 h-6 text-emerald-400" />
-                        <span className="text-[11px] font-bold text-slate-300">Transfer Bank</span>
-                      </div>
-                      <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 flex flex-col items-center justify-center gap-2">
-                        <QrCode className="w-6 h-6 text-emerald-400" />
-                        <span className="text-[11px] font-bold text-slate-300">QRIS / e-Wallet</span>
-                      </div>
-                      <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 flex flex-col items-center justify-center gap-2">
-                        <CreditCard className="w-6 h-6 text-emerald-400" />
-                        <span className="text-[11px] font-bold text-slate-300">Kartu Kredit</span>
-                      </div>
-                    </div>
+                    {/* Pending Transfer Box if user opened VA / transfer method */}
+                    {pendingPaymentInfo ? (
+                      <div className="p-6 rounded-2xl bg-amber-950/20 border border-amber-500/40 text-left space-y-4 shadow-inner">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-amber-400 font-bold text-xs sm:text-sm">
+                            <AlertCircle className="w-4 h-4" />
+                            <span>Menunggu Pembayaran: {pendingPaymentInfo.bank}</span>
+                          </div>
+                          <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px] uppercase tracking-wider">
+                            Belum Dibayar
+                          </span>
+                        </div>
 
-                    <p className="text-xs text-slate-400">
-                      dan banyak metode pembayaran lainnya via <strong>Midtrans Snap</strong>
-                    </p>
-
-                    {/* Tombol Buka Midtrans Snap Popup Langsung di Aplikasi */}
-                    <div className="space-y-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={handleOpenMidtransSnap}
-                        disabled={isOpeningSnap}
-                        className="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm sm:text-base transition-all flex items-center justify-center gap-2.5 shadow-xl shadow-emerald-950/50 hover:scale-[1.02] disabled:opacity-50"
-                      >
-                        {isOpeningSnap ? (
-                          <>
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                            <span>Membuka Jendela Midtrans Snap...</span>
-                          </>
-                        ) : (
-                          <>
-                            <CreditCard className="w-5 h-5" />
-                            <span>Pilih Metode & Bayar Sekarang</span>
-                          </>
+                        {pendingPaymentInfo.vaNumber && (
+                          <div className="space-y-1.5">
+                            <span className="text-[11px] text-slate-400 font-medium">Nomor Virtual Account / Kode Bayar:</span>
+                            <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                              <span className="font-mono font-black text-white text-base sm:text-lg tracking-wider">
+                                {pendingPaymentInfo.vaNumber}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(pendingPaymentInfo.vaNumber || '');
+                                  setCopiedVa(true);
+                                  setTimeout(() => setCopiedVa(false), 2000);
+                                }}
+                                className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 border border-slate-700 transition-colors"
+                              >
+                                {copiedVa ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                <span>{copiedVa ? 'Tersalin' : 'Salin'}</span>
+                              </button>
+                            </div>
+                          </div>
                         )}
-                      </button>
-                    </div>
+
+                        <p className="text-[11px] text-slate-300 leading-relaxed">
+                          Silakan lakukan transfer dana sesuai nominal <strong>{selectedPkg?.priceFormatted}</strong> sebelum batas waktu berakhir. Setelah transfer berhasil, klik tombol <strong>Saya Sudah Bayar</strong> di bawah.
+                        </p>
+
+                        {statusMessage && (
+                          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-amber-300 flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 shrink-0" />
+                            <span>{statusMessage}</span>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                          <button
+                            type="button"
+                            onClick={handleCheckPaymentStatus}
+                            disabled={isCheckingStatus}
+                            className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 disabled:opacity-50 transition-all hover:scale-[1.01]"
+                          >
+                            {isCheckingStatus ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Memverifikasi Pembayaran...</span>
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="w-4 h-4" />
+                                <span>Saya Sudah Bayar (Cek Status)</span>
+                              </>
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleOpenMidtransSnap}
+                            disabled={isOpeningSnap}
+                            className="w-full py-3.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-slate-700 transition-colors"
+                          >
+                            <CreditCard className="w-4 h-4 text-emerald-400" />
+                            <span>Buka Jendela Midtrans</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Visual 3 Method Cards */}
+                        <div className="grid grid-cols-3 gap-3 py-2">
+                          <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 flex flex-col items-center justify-center gap-2">
+                            <Landmark className="w-6 h-6 text-emerald-400" />
+                            <span className="text-[11px] font-bold text-slate-300">Transfer Bank</span>
+                          </div>
+                          <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 flex flex-col items-center justify-center gap-2">
+                            <QrCode className="w-6 h-6 text-emerald-400" />
+                            <span className="text-[11px] font-bold text-slate-300">QRIS / e-Wallet</span>
+                          </div>
+                          <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 flex flex-col items-center justify-center gap-2">
+                            <CreditCard className="w-6 h-6 text-emerald-400" />
+                            <span className="text-[11px] font-bold text-slate-300">Kartu Kredit</span>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-slate-400">
+                          dan banyak metode pembayaran lainnya via <strong>Midtrans Snap</strong>
+                        </p>
+
+                        {/* Tombol Buka Midtrans Snap Popup Langsung di Aplikasi */}
+                        <div className="space-y-3 pt-2">
+                          <button
+                            type="button"
+                            onClick={handleOpenMidtransSnap}
+                            disabled={isOpeningSnap}
+                            className="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm sm:text-base transition-all flex items-center justify-center gap-2.5 shadow-xl shadow-emerald-950/50 hover:scale-[1.02] disabled:opacity-50"
+                          >
+                            {isOpeningSnap ? (
+                              <>
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                <span>Membuka Jendela Midtrans Snap...</span>
+                              </>
+                            ) : (
+                              <>
+                                <CreditCard className="w-5 h-5" />
+                                <span>Pilih Metode & Bayar Sekarang</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </>
+                    )}
 
                     <div className="pt-4 border-t border-slate-800 flex items-center justify-center gap-2 text-[11px] text-slate-400">
                       <Lock className="w-3.5 h-3.5 text-emerald-400" />

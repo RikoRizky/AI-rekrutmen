@@ -2,11 +2,32 @@
  * Helper to extract readable text content from uploaded files (PDF, DOCX/DOC, TXT, MD)
  */
 
-export async function extractTextFromFile(file: File): Promise<string> {
-  const fileType = file.type;
-  const fileName = file.name.toLowerCase();
+export async function extractTextFromFile(file: File, documentType: string = 'cv'): Promise<string> {
+  // 1. Try server-side parser via /api/parse-document with pdf-parse and mammoth
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', documentType);
 
-  // 1. Plain Text / Markdown / JSON / CSV
+    const res = await fetch('/api/parse-document', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.extractedText && data.extractedText.trim().length > 0) {
+        return data.extractedText.trim();
+      }
+    }
+  } catch (apiErr) {
+    console.warn('Server document parser API fallback:', apiErr);
+  }
+
+  // 2. Client-side fallback: Plain Text / Markdown / JSON / CSV
+  const fileName = file.name.toLowerCase();
+  const fileType = file.type;
+
   if (
     fileType.includes('text') ||
     fileName.endsWith('.txt') ||
@@ -22,53 +43,29 @@ export async function extractTextFromFile(file: File): Promise<string> {
     });
   }
 
-  // 2. PDF Parsing via client-side binary text extraction or ArrayBuffer
+  // 3. Client-side fallback: PDF extraction
   if (fileType.includes('pdf') || fileName.endsWith('.pdf')) {
     try {
       const arrayBuffer = await file.arrayBuffer();
       const text = extractTextFromPdfArrayBuffer(arrayBuffer);
-      if (text && text.trim().length > 50) {
+      if (text && text.trim().length > 30) {
         return text;
       }
-      // If direct binary extraction gave minimal text, return structured fallback with file metadata
-      return `[Dokumen PDF: ${file.name} - Ukuran: ${(file.size / 1024).toFixed(1)} KB]\n${text || 'Isi dokumen PDF berhasil diunggah.'}`;
-    } catch (e) {
-      console.warn('PDF extraction fallback used', e);
+      return `[Dokumen PDF: ${file.name} - ${(file.size / 1024).toFixed(1)} KB]\nDokumen lampiran ${documentType.toUpperCase()} berhasil diunggah.`;
+    } catch {
       return `[Dokumen PDF: ${file.name}]`;
     }
   }
 
-  // 3. Word (.docx / .doc) or other documents
-  if (fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const decoder = new TextDecoder('utf-8', { fatal: false });
-      const rawText = decoder.decode(arrayBuffer);
-      // Clean XML tags from docx zip stream if any
-      const cleaned = rawText
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/[\x00-\x1F\x7F-\x9F]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-      
-      if (cleaned.length > 50) {
-        return `[Dokumen Word: ${file.name}]\n${cleaned.slice(0, 3000)}`;
-      }
-      return `[Dokumen Word: ${file.name} - ${(file.size / 1024).toFixed(1)} KB]`;
-    } catch {
-      return `[Dokumen: ${file.name}]`;
-    }
-  }
-
-  // Generic fallback: read as text
+  // 4. Generic fallback
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = () => {
-      const res = reader.result as string;
+      const res = (reader.result as string) || '';
       const clean = res.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
-      resolve(clean.slice(0, 2000) || `[File: ${file.name}]`);
+      resolve(clean.slice(0, 3000) || `[Berkas: ${file.name}]`);
     };
-    reader.onerror = () => resolve(`[File: ${file.name}]`);
+    reader.onerror = () => resolve(`[Berkas: ${file.name}]`);
     reader.readAsText(file);
   });
 }
@@ -81,13 +78,11 @@ function extractTextFromPdfArrayBuffer(buffer: ArrayBuffer): string {
   let text = '';
   const str = new TextDecoder('latin1').decode(bytes);
 
-  // Match text objects in PDF streams: BT ... ET blocks and (string) Tj / [strings] TJ
   const streamRegex = /BT[\s\S]*?ET/g;
   const matches = str.match(streamRegex);
 
   if (matches && matches.length > 0) {
     for (const block of matches) {
-      // Find (text) Tj
       const tjMatches = block.match(/\(([^)]+)\)\s*Tj/g);
       if (tjMatches) {
         for (const tj of tjMatches) {
@@ -98,7 +93,6 @@ function extractTextFromPdfArrayBuffer(buffer: ArrayBuffer): string {
         }
       }
 
-      // Find [(text1)(text2)] TJ
       const tjArrayMatches = block.match(/\[([^\]]+)\]\s*TJ/g);
       if (tjArrayMatches) {
         for (const tja of tjArrayMatches) {
@@ -114,13 +108,10 @@ function extractTextFromPdfArrayBuffer(buffer: ArrayBuffer): string {
     }
   }
 
-  // If stream regex didn't find structured text, search for plain printable characters
   if (!text || text.trim().length < 30) {
-    const plainRegex = /\/Contents\s+([0-9]+\s+[0-9]+\s+R|\<[0-9a-fA-F]+\>)/g;
-    // Extract any parenthesized strings
     const parenStrings = str.match(/\(([a-zA-Z0-9\s.,@:;/\-_+&()]{3,100})\)/g);
     if (parenStrings) {
-      text = parenStrings.map(s => s.slice(1, -1)).join(' ');
+      text = parenStrings.map((s) => s.slice(1, -1)).join(' ');
     }
   }
 

@@ -14,15 +14,19 @@
     "@prisma/adapter-mariadb": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "@types/canvas-confetti": "^1.9.0",
+    "@types/pdf-parse": "^1.1.5",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "lucide-react": "^1.32.0",
+    "mammoth": "^1.12.1",
     "mariadb": "^3.5.3",
     "next": "16.3.1",
     "nodemailer": "^9.0.5",
+    "pdf-parse": "^2.4.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "unpdf": "^1.8.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
