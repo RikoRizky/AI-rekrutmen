@@ -16,7 +16,7 @@ import {
   Banknote,
   ArrowRight
 } from 'lucide-react';
-import { getDefaultCompanyLogo, getCurrentUser, getAllApplications } from '@/lib/storage';
+import { getDefaultCompanyLogo, getCurrentUser, getAllApplications, getJobDeadlineCountdown } from '@/lib/storage';
 
 interface JobCardProps {
   job: Job;
@@ -26,6 +26,7 @@ interface JobCardProps {
 
 export default function JobCard({ job, applicantCount = 0, hasApplied: initialHasApplied = false }: JobCardProps) {
   const [hasApplied, setHasApplied] = React.useState(initialHasApplied);
+  const deadlineInfo = getJobDeadlineCountdown(job.deadline);
 
   React.useEffect(() => {
     if (initialHasApplied) {
@@ -157,13 +158,10 @@ export default function JobCard({ job, applicantCount = 0, hasApplied: initialHa
         </div>
       </div>
 
-      {/* Row 7: Card Footer CTA */}
       <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs gap-3">
-        <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
-          <Users className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-          <span>
-            <strong className="text-slate-200">{applicantCount}</strong> pelamar
-          </span>
+        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] font-semibold ${deadlineInfo.badgeClass}`}>
+          <Clock className="w-3.5 h-3.5 shrink-0" />
+          <span>{deadlineInfo.label}</span>
         </div>
 
         <Link

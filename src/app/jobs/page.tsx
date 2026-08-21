@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Job, Application, Company, User } from '@/lib/types';
-import { getAllJobs, getAllApplications, getAllCompanies, getCurrentUser, initializeStorage, REFRESH_EVENT } from '@/lib/storage';
+import { getAllJobs, getAllApplications, getAllCompanies, getCurrentUser, initializeStorage, REFRESH_EVENT, getJobDeadlineCountdown } from '@/lib/storage';
 import JobCard from '@/components/JobCard';
 import { Search, Filter, Briefcase, Building2, MapPin } from 'lucide-react';
 
@@ -34,6 +34,17 @@ export default function JobsCatalogPage() {
   const departments = ['all', ...Array.from(new Set(jobs.map((j) => j.department)))];
 
   const filteredJobs = jobs.filter((job) => {
+    // 1. Exclude expired jobs from applicant exploration catalog
+    const deadlineInfo = getJobDeadlineCountdown(job.deadline);
+    if (deadlineInfo.isExpired) {
+      return false;
+    }
+
+    // 2. Only active jobs
+    if (job.status && job.status !== 'active') {
+      return false;
+    }
+
     const matchSearch =
       job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       job.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||

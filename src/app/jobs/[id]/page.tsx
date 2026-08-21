@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Job, DocumentAttachment, User, Application } from '@/lib/types';
-import { getJobById, getCurrentUser, submitApplication, getAllApplications, initializeStorage } from '@/lib/storage';
+import { getJobById, getCurrentUser, submitApplication, getAllApplications, initializeStorage, getJobDeadlineCountdown } from '@/lib/storage';
 import { evaluateApplicantWithAi } from '@/lib/ai-evaluator';
 import DocumentUploader from '@/components/DocumentUploader';
 import AiScoreBadge from '@/components/AiScoreBadge';
@@ -43,6 +43,8 @@ export default function JobDetailPage() {
   // Existing application if candidate already applied
   const [existingApplication, setExistingApplication] = useState<Application | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const deadlineInfo = getJobDeadlineCountdown(job?.deadline);
 
   // Form State
   const [applicantName, setApplicantName] = useState('');
@@ -240,9 +242,16 @@ export default function JobDetailPage() {
           </div>
           <div className="p-3 rounded-2xl bg-slate-950/70 border border-slate-800/80 space-y-1">
             <span className="text-slate-400 text-[11px] block">Batas Akhir:</span>
-            <span className="font-bold text-white block">
-              {job.deadline ? new Date(job.deadline).toLocaleDateString('id-ID') : 'Terbuka'}
-            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="font-bold text-white block">
+                {job.deadline ? new Date(job.deadline).toLocaleDateString('id-ID') : 'Terbuka'}
+              </span>
+              {job.deadline && (
+                <span className={`text-[10px] px-2 py-0.5 rounded-md font-semibold border ${deadlineInfo.badgeClass}`}>
+                  {deadlineInfo.label}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -321,76 +330,8 @@ export default function JobDetailPage() {
         <div className="lg:col-span-5">
           <div className="sticky top-24 space-y-6">
             
-            {/* 1. JIKA BELUM LOGIN: TAMPILKAN KARTU WAJIB LOGIN */}
-            {!currentUser ? (
-              <div className="p-6 sm:p-7 rounded-3xl bg-slate-900 border border-slate-800 space-y-5 text-xs text-center shadow-2xl">
-                <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto shadow-md">
-                  <Lock className="w-7 h-7" />
-                </div>
-
-                <div className="space-y-1.5">
-                  <h3 className="text-base font-bold text-white">Masuk Akun untuk Melamar</h3>
-                  <p className="text-slate-400 text-xs leading-relaxed max-w-xs mx-auto">
-                    Anda harus masuk sebagai pelamar terlebih dahulu untuk mengunggah CV dan mendapatkan analisis skor AI di <strong>{job.companyName}</strong>.
-                  </p>
-                </div>
-
-                <div className="space-y-2.5 pt-2">
-                  <Link
-                    href={`/auth?callbackUrl=/jobs/${job.id}`}
-                    className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 transition-all hover:scale-[1.02]"
-                  >
-                    <UserIcon className="w-4 h-4" />
-                    <span>Masuk Akun / Login Pelamar</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
-
-                  <Link
-                    href={`/auth?callbackUrl=/jobs/${job.id}`}
-                    className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs block transition-colors border border-slate-700"
-                  >
-                    Daftar Akun Baru (Gratis)
-                  </Link>
-                </div>
-
-                <p className="text-[11px] text-slate-500">
-                  Dapat masuk langsung menggunakan Akun Google dalam 1 klik.
-                </p>
-              </div>
-            ) : (!currentUser.profileCompleted && !(currentUser.biodata?.institutionName && (currentUser.biodata?.lastEducation?.includes('SMA') || currentUser.biodata?.lastEducation?.includes('SMK') || currentUser.biodata?.educationMajor))) ? (
-              /* 2. JIKA BIODATA BELUM LENGKAP: WAJIBKAN ISI BIODATA DULU */
-              <div className="p-6 sm:p-7 rounded-3xl bg-slate-900 border border-amber-500/40 space-y-5 text-xs text-center shadow-2xl relative overflow-hidden">
-                <div className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto shadow-md">
-                  <UserIcon className="w-7 h-7" />
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold uppercase tracking-wider">
-                    <span>Langkah Wajib</span>
-                  </div>
-                  <h3 className="text-base font-bold text-white">Lengkapi Biodata & Profil Anda</h3>
-                  <p className="text-slate-400 text-xs leading-relaxed max-w-xs mx-auto">
-                    Sebelum dapat mengunggah berkas lamaran dan mengirimkan CV untuk posisi ini di <strong>{job.companyName}</strong>, Anda wajib melengkapi data pribadi dan riwayat pendidikan terlebih dahulu.
-                  </p>
-                </div>
-
-                <div className="pt-2 space-y-2">
-                  <Link
-                    href={`/user/profile?callbackUrl=/jobs/${job.id}`}
-                    className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 transition-all hover:scale-[1.02]"
-                  >
-                    <UserIcon className="w-4 h-4" />
-                    <span>Lengkapi Biodata & Profil Sekarang</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
-                </div>
-
-                <p className="text-[11px] text-slate-500">
-                  Data biodata akan otomatis tersimpan dan langsung siap digunakan untuk melamar lowongan ini.
-                </p>
-              </div>
-            ) : existingApplication ? (
-              /* 3. JIKA SUDAH PERNAH MELAMAR LOKER INI: GABISA LAMAR LAGI & TAMPILKAN HASIL RIWAYAT */
+            {/* 1. JIKA SUDAH PERNAH MELAMAR LOKER INI: TAMPILKAN HASIL RIWAYAT */}
+            {existingApplication ? (
               <div className="p-6 sm:p-7 rounded-3xl bg-slate-900 border border-emerald-500/40 space-y-5 text-xs shadow-2xl relative overflow-hidden">
                 <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
                   <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold shrink-0">
@@ -461,6 +402,101 @@ export default function JobDetailPage() {
                     Buka Portal Status Lamaran Saya
                   </Link>
                 </div>
+              </div>
+            ) : deadlineInfo.isExpired ? (
+              /* 2. JIKA BATAS WAKTU SUDAH LEWAT & BELUM PERNAH LAMAR */
+              <div className="p-6 sm:p-7 rounded-3xl bg-slate-900 border border-rose-500/40 space-y-5 text-xs text-center shadow-2xl relative overflow-hidden">
+                <div className="w-14 h-14 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto shadow-md">
+                  <Clock className="w-7 h-7" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 text-[10px] font-bold uppercase tracking-wider">
+                    <span>Pendaftaran Ditutup</span>
+                  </div>
+                  <h3 className="text-base font-bold text-white">Batas Waktu Lamaran Berakhir</h3>
+                  <p className="text-slate-400 text-xs leading-relaxed max-w-xs mx-auto">
+                    Mohon maaf, pendaftaran untuk posisi ini di <strong>{job.companyName}</strong> telah ditutup karena telah melewati batas waktu pendaftaran ({job.deadline ? new Date(job.deadline).toLocaleDateString('id-ID') : ''}).
+                  </p>
+                </div>
+
+                <div className="pt-2">
+                  <Link
+                    href="/jobs"
+                    className="w-full py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 border border-slate-700 transition-colors"
+                  >
+                    <span>Eksplorasi Loker Aktif Lainnya</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              </div>
+            ) : !currentUser ? (
+              /* 3. JIKA BELUM LOGIN */
+              <div className="p-6 sm:p-7 rounded-3xl bg-slate-900 border border-slate-800 space-y-5 text-xs text-center shadow-2xl">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto shadow-md">
+                  <Lock className="w-7 h-7" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <h3 className="text-base font-bold text-white">Masuk Akun untuk Melamar</h3>
+                  <p className="text-slate-400 text-xs leading-relaxed max-w-xs mx-auto">
+                    Anda harus masuk sebagai pelamar terlebih dahulu untuk mengunggah CV dan mendapatkan analisis skor AI di <strong>{job.companyName}</strong>.
+                  </p>
+                </div>
+
+                <div className="space-y-2.5 pt-2">
+                  <Link
+                    href={`/auth?callbackUrl=/jobs/${job.id}`}
+                    className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 transition-all hover:scale-[1.02]"
+                  >
+                    <UserIcon className="w-4 h-4" />
+                    <span>Masuk Akun / Login Pelamar</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+
+                  <Link
+                    href={`/auth?callbackUrl=/jobs/${job.id}`}
+                    className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs block transition-colors border border-slate-700"
+                  >
+                    Daftar Akun Baru (Gratis)
+                  </Link>
+                </div>
+
+                <p className="text-[11px] text-slate-500">
+                  Dapat masuk langsung menggunakan Akun Google dalam 1 klik.
+                </p>
+              </div>
+            ) : (!currentUser.profileCompleted && !(currentUser.biodata?.institutionName && (currentUser.biodata?.lastEducation?.includes('SMA') || currentUser.biodata?.lastEducation?.includes('SMK') || currentUser.biodata?.educationMajor))) ? (
+              /* 4. JIKA BIODATA BELUM LENGKAP: WAJIBKAN ISI BIODATA DULU */
+              <div className="p-6 sm:p-7 rounded-3xl bg-slate-900 border border-amber-500/40 space-y-5 text-xs text-center shadow-2xl relative overflow-hidden">
+                <div className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto shadow-md">
+                  <UserIcon className="w-7 h-7" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold uppercase tracking-wider">
+                    <span>Langkah Wajib</span>
+                  </div>
+                  <h3 className="text-base font-bold text-white">Lengkapi Biodata & Profil Anda</h3>
+                  <p className="text-slate-400 text-xs leading-relaxed max-w-xs mx-auto">
+                    Sebelum dapat mengunggah berkas lamaran dan mengirimkan CV untuk posisi ini di <strong>{job.companyName}</strong>, Anda wajib melengkapi data pribadi dan riwayat pendidikan terlebih dahulu.
+                  </p>
+                </div>
+
+                <div className="pt-2 space-y-2">
+                  <Link
+                    href={`/user/profile?callbackUrl=/jobs/${job.id}`}
+                    className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 transition-all hover:scale-[1.02]"
+                  >
+                    <UserIcon className="w-4 h-4" />
+                    <span>Lengkapi Biodata & Profil Sekarang</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+
+                <p className="text-[11px] text-slate-500">
+                  Data biodata akan otomatis tersimpan dan langsung siap digunakan untuk melamar lowongan ini.
+                </p>
               </div>
             ) : !submissionSuccess ? (
               /* 4. FORMULIR PENGISIAN LAMARAN & UPLOAD CV */

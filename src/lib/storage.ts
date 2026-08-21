@@ -799,3 +799,108 @@ export function saveSettings(settings: AppSettings) {
     body: JSON.stringify(settings)
   }).catch(console.error);
 }
+
+// --- DEADLINE & COUNTDOWN UTILITIES ---
+
+export interface DeadlineInfo {
+  isExpired: boolean;
+  label: string;
+  daysLeft: number;
+  badgeClass: string;
+  isUrgent: boolean;
+}
+
+export function getJobDeadlineCountdown(deadlineStr?: string): DeadlineInfo {
+  if (!deadlineStr) {
+    return {
+      isExpired: false,
+      label: 'Batas: Terbuka',
+      daysLeft: 999,
+      badgeClass: 'text-slate-400 bg-slate-950 border-slate-800',
+      isUrgent: false
+    };
+  }
+
+  const deadlineDate = new Date(deadlineStr);
+  if (isNaN(deadlineDate.getTime())) {
+    return {
+      isExpired: false,
+      label: 'Batas: Terbuka',
+      daysLeft: 999,
+      badgeClass: 'text-slate-400 bg-slate-950 border-slate-800',
+      isUrgent: false
+    };
+  }
+
+  if (deadlineStr.length <= 10) {
+    deadlineDate.setHours(23, 59, 59, 999);
+  }
+
+  const now = new Date();
+  const diffMs = deadlineDate.getTime() - now.getTime();
+
+  if (diffMs <= 0) {
+    return {
+      isExpired: true,
+      label: 'Pendaftaran Ditutup',
+      daysLeft: 0,
+      badgeClass: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
+      isUrgent: true
+    };
+  }
+
+  const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const totalDays = Math.floor(totalHours / 24);
+
+  if (totalDays > 30) {
+    const months = Math.floor(totalDays / 30);
+    const remDays = totalDays % 30;
+    const label = remDays > 0 ? `Sisa ${months} bln ${remDays} hr` : `Sisa ${months} bulan lagi`;
+    return {
+      isExpired: false,
+      label,
+      daysLeft: totalDays,
+      badgeClass: 'text-slate-300 bg-slate-950 border-slate-800',
+      isUrgent: false
+    };
+  }
+
+  if (totalDays > 7) {
+    return {
+      isExpired: false,
+      label: `Sisa ${totalDays} hari lagi`,
+      daysLeft: totalDays,
+      badgeClass: 'text-slate-300 bg-slate-950 border-slate-800',
+      isUrgent: false
+    };
+  }
+
+  if (totalDays >= 1) {
+    return {
+      isExpired: false,
+      label: totalDays === 1 ? 'Sisa 1 hari lagi!' : `Sisa ${totalDays} hari lagi!`,
+      daysLeft: totalDays,
+      badgeClass: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+      isUrgent: true
+    };
+  }
+
+  if (totalHours >= 1) {
+    return {
+      isExpired: false,
+      label: `Sisa ${totalHours} jam lagi!`,
+      daysLeft: 0,
+      badgeClass: 'text-rose-400 bg-rose-500/10 border-rose-500/30 animate-pulse',
+      isUrgent: true
+    };
+  }
+
+  const minutes = Math.max(1, Math.floor(diffMs / (1000 * 60)));
+  return {
+    isExpired: false,
+    label: `Sisa ${minutes} menit lagi!`,
+    daysLeft: 0,
+    badgeClass: 'text-rose-400 bg-rose-500/10 border-rose-500/30 animate-pulse',
+    isUrgent: true
+  };
+}

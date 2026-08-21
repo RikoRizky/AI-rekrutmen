@@ -10,7 +10,8 @@ import {
   updateCompany,
   getDefaultCompanyLogo,
   initializeStorage,
-  REFRESH_EVENT
+  REFRESH_EVENT,
+  getJobDeadlineCountdown
 } from '@/lib/storage';
 import CandidateDetailModal from '@/components/CandidateDetailModal';
 import AiScoreBadge from '@/components/AiScoreBadge';
@@ -239,6 +240,9 @@ export default function CompanyPortalPage() {
   const interviewCount = applications.filter((a) => a.status === 'interview').length;
   const acceptedCount = applications.filter((a) => a.status === 'accepted').length;
 
+  const activeJobsCount = jobs.filter((j) => j.status !== 'closed' && !getJobDeadlineCountdown(j.deadline).isExpired).length;
+  const closedJobsCount = jobs.length - activeJobsCount;
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
       
@@ -310,7 +314,12 @@ export default function CompanyPortalPage() {
             <Briefcase className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white">{jobs.length} Loker</div>
-          <div className="text-[11px] text-emerald-400 font-medium">Status Aktif Terbuka</div>
+          <div className="text-[11px] font-medium flex items-center gap-1.5">
+            <span className="text-emerald-400 font-semibold">{activeJobsCount} Aktif Terbuka</span>
+            {closedJobsCount > 0 && (
+              <span className="text-rose-400 font-semibold">• {closedJobsCount} Ditutup</span>
+            )}
+          </div>
         </div>
 
         <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
@@ -388,14 +397,18 @@ export default function CompanyPortalPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {jobs.map((j) => {
+                const deadlineInfo = getJobDeadlineCountdown(j.deadline);
+                const isJobActive = j.status !== 'closed' && !deadlineInfo.isExpired;
                 const applicantsForThisJob = applications.filter((a) => a.jobId === j.id);
-                const topMatchForThisJob = applicantsForThisJob.filter((a) => a.aiEvaluation.overallScore >= 85).length;
+                const topMatchForThisJob = applicantsForThisJob.filter((a) => (a.aiEvaluation?.overallScore || 0) >= 85).length;
                 const interviewForThisJob = applicantsForThisJob.filter((a) => a.status === 'interview').length;
 
                 return (
                   <div
                     key={j.id}
-                    className="p-6 rounded-3xl bg-slate-900 border border-slate-800 hover:border-emerald-500/40 transition-all flex flex-col justify-between space-y-5 shadow-lg group"
+                    className={`p-6 rounded-3xl bg-slate-900 border transition-all flex flex-col justify-between space-y-5 shadow-lg group ${
+                      isJobActive ? 'border-slate-800 hover:border-emerald-500/40' : 'border-rose-500/30 bg-slate-900/80'
+                    }`}
                   >
                     {/* Top Info */}
                     <div className="space-y-3">
@@ -403,9 +416,12 @@ export default function CompanyPortalPage() {
                         <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold">
                           {j.type}
                         </span>
-                        <span className="text-[10px] text-slate-400">
-                          Batas: {j.deadline || 'Terbuka'}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-semibold border ${deadlineInfo.badgeClass}`}>
+                            <Clock className="w-3 h-3 inline mr-1" />
+                            {deadlineInfo.label}
+                          </span>
+                        </div>
                       </div>
 
                       <div>
@@ -481,11 +497,20 @@ export default function CompanyPortalPage() {
                           <span>Pratinjau Loker Publik</span>
                           <ArrowUpRight className="w-3 h-3" />
                         </Link>
-                        <span className="text-emerald-400 font-semibold text-[10px]">● Aktif Terbuka</span>
+                        {isJobActive ? (
+                          <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold text-[10px] bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <span>Aktif Terbuka</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-rose-400 font-semibold text-[10px] bg-rose-500/10 px-2.5 py-0.5 rounded-full border border-rose-500/20">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                            <span>Pendaftaran Ditutup</span>
+                          </span>
+                        )}
                       </div>
 
                     </div>
-
                   </div>
                 );
               })}
@@ -509,27 +534,49 @@ export default function CompanyPortalPage() {
           </button>
 
           {/* Selected Job Header Summary */}
-          <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold">
-                  {selectedJob.type}
-                </span>
-                <span className="text-xs text-slate-400">{selectedJob.department} • {selectedJob.location}</span>
-              </div>
-              <h2 className="text-xl sm:text-2xl font-black text-white">{selectedJob.title}</h2>
-              <p className="text-xs text-emerald-400 font-semibold">
-                Gaji: {selectedJob.salaryRange || 'Kompetitif'} • Pengalaman: {selectedJob.experienceLevel}
-              </p>
-            </div>
+          {(() => {
+            const selectedJobDeadline = getJobDeadlineCountdown(selectedJob.deadline);
+            const isSelectedJobActive = selectedJob.status !== 'closed' && !selectedJobDeadline.isExpired;
 
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 text-center">
-                <span className="text-[10px] text-slate-400 block">Total Pelamar Loker Ini</span>
-                <strong className="text-lg font-black text-white">{jobApplicants.length} Kandidat</strong>
+            return (
+              <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg">
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold">
+                      {selectedJob.type}
+                    </span>
+                    <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-semibold border ${selectedJobDeadline.badgeClass}`}>
+                      <Clock className="w-3 h-3 inline mr-1" />
+                      {selectedJobDeadline.label}
+                    </span>
+                    {isSelectedJobActive ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>Aktif Terbuka</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                        <span>Pendaftaran Ditutup</span>
+                      </span>
+                    )}
+                    <span className="text-xs text-slate-400">• {selectedJob.department} • {selectedJob.location}</span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black text-white">{selectedJob.title}</h2>
+                  <p className="text-xs text-emerald-400 font-semibold">
+                    Gaji: {selectedJob.salaryRange || 'Kompetitif'} • Pengalaman: {selectedJob.experienceLevel} • Batas: {selectedJob.deadline ? new Date(selectedJob.deadline).toLocaleDateString('id-ID') : 'Terbuka'}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 text-center">
+                    <span className="text-[10px] text-slate-400 block">Total Pelamar Loker Ini</span>
+                    <strong className="text-lg font-black text-white">{jobApplicants.length} Kandidat</strong>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* Filter Bar for this Job's Applicants */}
           <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
