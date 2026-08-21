@@ -412,7 +412,7 @@ function AuthContent() {
             <Building2 className="w-5 h-5 text-emerald-400 shrink-0" />
             <div>
               <p className="font-semibold text-white">Ingin Membuka Loker Perusahaan?</p>
-              <p className="text-slate-400 text-[11px]">Langganan paket Midtrans untuk buat akun PT.</p>
+              <p className="text-slate-400 text-[11px]">Bergabung dengan kami untuk buat akun PT.</p>
             </div>
           </div>
           <Link
