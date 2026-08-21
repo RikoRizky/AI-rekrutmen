@@ -8,7 +8,7 @@ import CandidateDetailModal from '@/components/CandidateDetailModal';
 import Link from 'next/link';
 import {
   FileCheck,
-  Building,
+  Building2,
   Calendar,
   Sparkles,
   ArrowRight,
@@ -16,7 +16,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Eye,
-  Briefcase
+  Briefcase,
+  Search,
+  MessageSquare
 } from 'lucide-react';
 
 export default function UserApplicationsPage() {
@@ -31,8 +33,11 @@ export default function UserApplicationsPage() {
       setCurrentUser(user);
       if (user) {
         const apps = getAllApplications();
-        // Match user's applications
-        const matched = apps.filter((a) => a.userId === user.id || a.applicantEmail.toLowerCase() === user.email.toLowerCase());
+        const matched = apps.filter(
+          (a) =>
+            a.userId === user.id ||
+            a.applicantEmail.toLowerCase() === user.email.toLowerCase()
+        );
         setMyApplications(matched);
       }
     };
@@ -42,43 +47,65 @@ export default function UserApplicationsPage() {
     return () => window.removeEventListener(REFRESH_EVENT, loadData);
   }, []);
 
-  const getStatusText = (status: Application['status']) => {
+  const getStatusConfig = (status: Application['status']) => {
     switch (status) {
       case 'accepted':
-        return { label: 'Selamat! Diterima Bekerja', bg: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' };
+        return {
+          label: 'Selamat! Lamaran Diterima',
+          bg: 'bg-emerald-600 text-white border-emerald-500',
+          icon: CheckCircle2
+        };
       case 'interview':
-        return { label: 'Tahap Wawancara (Interview)', bg: 'bg-blue-500/10 text-blue-600 border-blue-500/20' };
+        return {
+          label: 'Tahap Wawancara (Interview)',
+          bg: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+          icon: MessageSquare
+        };
       case 'screening':
-        return { label: 'Lolos Seleksi Berkas AI', bg: 'bg-purple-500/10 text-purple-600 border-purple-500/20' };
+        return {
+          label: 'Peninjauan Berkas AI & HRD',
+          bg: 'bg-teal-500/20 text-teal-300 border-teal-500/40',
+          icon: Clock
+        };
       case 'rejected':
-        return { label: 'Belum Sesuai Kriteria', bg: 'bg-rose-500/10 text-rose-600 border-rose-500/20' };
+        return {
+          label: 'Belum Sesuai Kriteria',
+          bg: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
+          icon: AlertCircle
+        };
       default:
-        return { label: 'Dalam Peninjauan AI & HRD', bg: 'bg-slate-500/10 text-slate-600 border-slate-500/20' };
+        return {
+          label: 'Lamaran Terkirim (Applied)',
+          bg: 'bg-slate-800 text-slate-300 border-slate-700',
+          icon: Clock
+        };
     }
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 mb-2">
-            <FileCheck className="w-3.5 h-3.5" /> Portal Pelamar
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-semibold mb-2">
+            <FileCheck className="w-4 h-4 text-emerald-400" />
+            <span>Portal Pelamar Kerja</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100">
-            Riwayat Lamaran Saya
+          <h1 className="text-2xl sm:text-3xl font-black text-white">
+            Status Lamaran Saya
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Pantau status seleksi berkas dan hasil evaluasi kecocokan AI untuk setiap posisi yang Anda lamar.
+          <p className="text-xs text-slate-400 mt-1">
+            Pantau progress seleksi dan hasil evaluasi radar Gemini AI untuk setiap lowongan yang Anda lamar.
           </p>
         </div>
 
         <Link
-          href="/"
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm self-start sm:self-auto"
+          href="/jobs"
+          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 transition-colors self-start sm:self-auto shadow-sm"
         >
-          <Briefcase className="w-4 h-4" /> Cari Lowongan Baru
+          <Search className="w-3.5 h-3.5" />
+          <span>Eksplorasi Loker Lainnya</span>
         </Link>
       </div>
 
@@ -86,65 +113,67 @@ export default function UserApplicationsPage() {
       {myApplications.length > 0 ? (
         <div className="space-y-4">
           {myApplications.map((app) => {
-            const statusInfo = getStatusText(app.status);
+            const ev = app.aiEvaluation;
+            const statusCfg = getStatusConfig(app.status);
+            const StatusIcon = statusCfg.icon;
+
             return (
               <div
                 key={app.id}
-                className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-indigo-500/40 transition-all duration-200"
+                className="p-6 rounded-3xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all flex flex-col md:flex-row md:items-center justify-between gap-6"
               >
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                {/* Left Side: Job & Company */}
+                <div className="space-y-2 max-w-lg">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="font-bold text-emerald-400">{app.companyName}</span>
+                    <span className="text-slate-500">•</span>
+                    <span className="text-slate-400">{app.jobDepartment}</span>
+                  </div>
+
+                  <h3 className="text-lg font-bold text-white">{app.jobTitle}</h3>
+
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Dilamar: {new Date(app.appliedDate).toLocaleDateString('id-ID')}</span>
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <FileCheck className="w-3.5 h-3.5 text-slate-500" />
+                      <span>{app.documents.length} Berkas Terlampir</span>
+                    </span>
+                  </div>
+
+                  {app.hrNotes && (
+                    <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-300">
+                      <strong className="text-emerald-400">Catatan HR:</strong> {app.hrNotes}
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Side: AI Score & Status Action */}
+                <div className="flex flex-row md:flex-col items-start md:items-end justify-between gap-3 pt-4 md:pt-0 border-t md:border-t-0 border-slate-800">
                   
-                  {/* Left Info */}
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                        {app.jobDepartment || 'Engineering'}
-                      </span>
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold border ${statusInfo.bg}`}>
-                        {statusInfo.label}
-                      </span>
-                    </div>
-
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                      {app.jobTitle}
-                    </h3>
-
-                    <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
-                      <span className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5" /> Tanggal Lamar: {new Date(app.appliedDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <FileCheck className="w-3.5 h-3.5" /> {app.documents.length} Berkas Terlampir (CV, Sertifikat)
-                      </span>
-                    </div>
-
-                    {/* AI Executive Summary Snippet */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 max-w-2xl text-xs text-slate-700 dark:text-slate-300">
-                      <span className="font-bold text-indigo-600 dark:text-indigo-400 block mb-1 flex items-center gap-1">
-                        <Sparkles className="w-3.5 h-3.5" /> Analisis Kesesuaian AI:
-                      </span>
-                      <p className="line-clamp-2 leading-relaxed">
-                        {app.aiEvaluation.executiveSummary}
-                      </p>
+                  <div className="flex items-center gap-2">
+                    <div className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${statusCfg.bg}`}>
+                      <StatusIcon className="w-3.5 h-3.5" />
+                      <span>{statusCfg.label}</span>
                     </div>
                   </div>
 
-                  {/* Right Score & Action */}
-                  <div className="flex flex-col sm:flex-row lg:flex-col items-start sm:items-center lg:items-end justify-between gap-4 shrink-0 border-t lg:border-t-0 pt-4 lg:pt-0 border-slate-100 dark:border-slate-800">
-                    <div className="text-right">
-                      <AiScoreBadge
-                        score={app.aiEvaluation.overallScore}
-                        fitLevel={app.aiEvaluation.fitLevel}
-                        size="md"
-                        isRealAi={app.aiEvaluation.isRealAi}
-                      />
-                    </div>
+                  <div className="flex items-center gap-3">
+                    <AiScoreBadge
+                      score={ev.overallScore}
+                      fitLevel={ev.fitLevel}
+                      recommendation={ev.recommendation}
+                      size="sm"
+                    />
 
                     <button
                       onClick={() => setSelectedApp(app)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-indigo-600 dark:hover:bg-indigo-500 dark:hover:text-white transition"
+                      className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1 transition-colors border border-slate-700"
                     >
-                      <Eye className="w-3.5 h-3.5" /> Lihat Detail & Analisis AI
+                      <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Lihat Evaluasi AI</span>
                     </button>
                   </div>
 
@@ -154,29 +183,41 @@ export default function UserApplicationsPage() {
           })}
         </div>
       ) : (
-        <div className="p-12 text-center rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 space-y-4">
-          <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center mx-auto">
-            <FileCheck className="w-7 h-7" />
+        <div className="p-12 text-center rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
+            <FileCheck className="w-6 h-6" />
           </div>
-          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Belum Ada Lamaran yang Dikirim</h3>
-          <p className="text-xs text-slate-500 max-w-md mx-auto">
-            Anda belum melamar posisi apapun. Pilih lowongan pekerjaan yang tersedia di beranda dan unggah berkas Anda untuk memulai seleksi.
+          <h3 className="text-lg font-bold text-white">Belum Ada Lamaran Kerja</h3>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
+            Anda belum mengirimkan lamaran untuk lowongan manapun. Temukan posisi yang cocok dan lamar sekarang.
           </p>
           <Link
-            href="/"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition"
+            href="/jobs"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
           >
-            <span>Jelajahi Lowongan Tersedia</span>
-            <ArrowRight className="w-4 h-4" />
+            <span>Cari Lowongan Kerja</span>
           </Link>
         </div>
       )}
 
-      {/* Candidate Dossier Detail Modal */}
+      {/* Candidate Modal for viewing application details */}
       {selectedApp && (
         <CandidateDetailModal
           application={selectedApp}
           onClose={() => setSelectedApp(null)}
+          onStatusUpdated={() => {
+            const apps = getAllApplications();
+            const user = getCurrentUser();
+            if (user) {
+              setMyApplications(
+                apps.filter(
+                  (a) =>
+                    a.userId === user.id ||
+                    a.applicantEmail.toLowerCase() === user.email.toLowerCase()
+                )
+              );
+            }
+          }}
         />
       )}
 

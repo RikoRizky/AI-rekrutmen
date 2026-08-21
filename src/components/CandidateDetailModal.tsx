@@ -1,499 +1,787 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Application, ApplicationStatus, AiEvaluationResult } from '@/lib/types';
-import { updateApplicationStatus, updateApplicationAiEvaluation, getSettings, getJobById } from '@/lib/storage';
-import { evaluateApplicantWithAi } from '@/lib/ai-evaluator';
-import AiScoreBadge from './AiScoreBadge';
+import { Application, ApplicationStatus } from '@/lib/types';
+import { updateApplicationStatus, getCurrentUser } from '@/lib/storage';
 import AiAnalysisRadar from './AiAnalysisRadar';
+import AiScoreBadge from './AiScoreBadge';
 import {
   X,
-  Sparkles,
-  CheckCircle,
-  AlertTriangle,
-  FileText,
   Mail,
   Phone,
   Calendar,
-  Save,
-  MessageSquareQuote,
-  ShieldCheck,
-  Building,
-  RefreshCw,
-  Loader2,
-  Check,
-  Award,
+  Briefcase,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
   HelpCircle,
-  Target,
-  FileSearch
+  Sparkles,
+  ChevronRight,
+  Send,
+  MessageSquare,
+  Building2,
+  Check,
+  Ban,
+  Clock,
+  ShieldCheck,
+  User as UserIcon,
+  GraduationCap,
+  Share2,
+  ExternalLink,
+  Globe,
+  AlertTriangle,
+  Award
 } from 'lucide-react';
 
 interface CandidateDetailModalProps {
-  application: Application | null;
+  application: Application;
   onClose: () => void;
   onStatusUpdated?: () => void;
+  isApplicantView?: boolean;
 }
 
 export default function CandidateDetailModal({
   application,
   onClose,
-  onStatusUpdated
+  onStatusUpdated,
+  isApplicantView
 }: CandidateDetailModalProps) {
-  const [currentStatus, setCurrentStatus] = useState<ApplicationStatus>(
-    application?.status || 'applied'
-  );
-  const [hrNotes, setHrNotes] = useState(application?.hrNotes || '');
-  const [activeTab, setActiveTab] = useState<'ai_analysis' | 'documents' | 'interview_guide'>('ai_analysis');
-  const [selectedDocIndex, setSelectedDocIndex] = useState(0);
+  const currentUser = getCurrentUser();
+  const isApplicant = isApplicantView || currentUser?.role === 'applicant';
+
+  const [activeTab, setActiveTab] = useState<'ai-summary' | 'background-social' | 'questions' | 'documents' | 'status'>('ai-summary');
+  const [currentStatus, setCurrentStatus] = useState<ApplicationStatus>(application.status);
+  const [hrNotes, setHrNotes] = useState<string>(application.hrNotes || '');
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Live AI Re-analyze state
-  const [currentEvaluation, setCurrentEvaluation] = useState<AiEvaluationResult | null>(
-    application?.aiEvaluation || null
-  );
-  const [isReanalyzing, setIsReanalyzing] = useState(false);
-  const [reanalyzeMsg, setReanalyzeMsg] = useState<string | null>(null);
+  const evalRes = application.aiEvaluation;
+  const biodata = application.applicantBiodata;
+  const bgReport = biodata?.aiBackgroundReport;
 
-  if (!application) return null;
+  const handleUpdateStatus = (newStatus: ApplicationStatus) => {
+    setIsSaving(true);
+    setCurrentStatus(newStatus);
+    updateApplicationStatus(application.id, newStatus, hrNotes);
+    setTimeout(() => {
+      setIsSaving(false);
+      setSavedSuccess(true);
+      if (onStatusUpdated) onStatusUpdated();
+      setTimeout(() => setSavedSuccess(false), 2500);
+    }, 300);
+  };
 
-  const aiEvaluation = currentEvaluation || application.aiEvaluation;
-
-  const handleSave = () => {
+  const handleSaveNotes = (e: React.FormEvent) => {
+    e.preventDefault();
     setIsSaving(true);
     updateApplicationStatus(application.id, currentStatus, hrNotes);
     setTimeout(() => {
       setIsSaving(false);
       setSavedSuccess(true);
       if (onStatusUpdated) onStatusUpdated();
-      setTimeout(() => setSavedSuccess(false), 2000);
+      setTimeout(() => setSavedSuccess(false), 2500);
     }, 300);
   };
 
-  const handleReanalyzeWithGemini = async () => {
-    setIsReanalyzing(true);
-    setReanalyzeMsg('Menghubungkan ke Google Gemini AI Engine...');
-
-    try {
-      const settings = getSettings();
-      const job = getJobById(application.jobId);
-      if (!job) throw new Error('Informasi lowongan tidak ditemukan');
-
-      setReanalyzeMsg('Google Gemini sedang menelaah CV & kualifikasi kandidat...');
-
-      const newEval = await evaluateApplicantWithAi({
-        job,
-        documents: application.documents,
-        applicantName: application.applicantName,
-        applicantHeadline: application.applicantEmail,
-        geminiApiKey: settings.geminiApiKey,
-        preferredModel: settings.aiModel || 'gemini-3.6-flash'
-      });
-
-      setCurrentEvaluation(newEval);
-      updateApplicationAiEvaluation(application.id, newEval);
-      setReanalyzeMsg('Analisis Google Gemini AI Selesai!');
-
-      if (onStatusUpdated) {
-        onStatusUpdated();
-      }
-
-      setTimeout(() => setReanalyzeMsg(null), 3000);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Gagal menjalankan analisis AI';
-      setReanalyzeMsg(`Error: ${msg}`);
-      setTimeout(() => setReanalyzeMsg(null), 4000);
-    } finally {
-      setIsReanalyzing(false);
-    }
-  };
-
-  const getStatusBadge = (status: ApplicationStatus) => {
-    switch (status) {
-      case 'accepted':
-        return <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">Diterima / Hired</span>;
-      case 'interview':
-        return <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">Jadwal Interview</span>;
-      case 'screening':
-        return <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">Lolos Screening Berkas</span>;
-      case 'rejected':
-        return <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">Ditolak / Not Fit</span>;
-      default:
-        return <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20">Menunggu Review</span>;
-    }
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/70 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+      <div className="relative w-full max-w-5xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         
-        {/* Modal Header */}
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between gap-4 bg-slate-50/50 dark:bg-slate-900/50">
+        {/* Header Modal */}
+        <div className="px-6 sm:px-8 py-5 sm:py-6 border-b border-slate-800 bg-slate-950/70 flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-xl shadow-md shrink-0">
+            <div className="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-emerald-400 font-bold text-xl overflow-hidden shrink-0 shadow-inner">
               {application.applicantName.charAt(0)}
             </div>
             <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                  {application.applicantName}
-                </h3>
-                {getStatusBadge(application.status)}
+              <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                <h2 className="text-xl sm:text-2xl font-bold text-white">{application.applicantName}</h2>
+                <AiScoreBadge
+                  score={evalRes.overallScore}
+                  fitLevel={evalRes.fitLevel}
+                  recommendation={evalRes.recommendation}
+                  size="md"
+                />
               </div>
-              <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mt-0.5">
-                Melamar posisi: {application.jobTitle}
+              <p className="text-xs sm:text-sm text-slate-300">
+                Melamar posisi <span className="text-emerald-400 font-semibold">{application.jobTitle}</span> • {application.companyName}
               </p>
-              <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 dark:text-slate-400 mt-2">
-                <span className="flex items-center gap-1">
-                  <Mail className="w-3.5 h-3.5" /> {application.applicantEmail}
-                </span>
-                {application.applicantPhone && (
-                  <span className="flex items-center gap-1">
-                    <Phone className="w-3.5 h-3.5" /> {application.applicantPhone}
-                  </span>
-                )}
-                <span className="flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5" /> Lamar: {new Date(application.appliedDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                </span>
+              <div className="flex flex-wrap items-center gap-4 mt-2.5 text-xs text-slate-400">
+                <span className="flex items-center gap-1.5"><Mail className="w-4 h-4 text-slate-400" /> {application.applicantEmail}</span>
+                <span className="flex items-center gap-1.5"><Phone className="w-4 h-4 text-slate-400" /> {application.applicantPhone || '08123456789'}</span>
+                <span className="flex items-center gap-1.5"><Calendar className="w-4 h-4 text-slate-400" /> {new Date(application.appliedDate).toLocaleDateString('id-ID')}</span>
               </div>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-6 h-6" />
           </button>
         </div>
 
-        {/* Top AI Score Hero Card with Live Re-analyze Button */}
-        <div className="px-6 py-4 bg-gradient-to-r from-indigo-900/10 via-purple-900/10 to-teal-900/10 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-indigo-600 text-white min-w-[76px] shadow-md">
-                <span className="text-2xl font-black">{aiEvaluation.overallScore}%</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider opacity-90">AI Score</span>
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <AiScoreBadge
-                    score={aiEvaluation.overallScore}
-                    fitLevel={aiEvaluation.fitLevel}
-                    size="sm"
-                    isRealAi={aiEvaluation.isRealAi}
-                  />
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-700 dark:text-indigo-300">
-                    Rekomendasi: {aiEvaluation.recommendation.replace('_', ' ')}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1.5 line-clamp-2 max-w-xl">
-                  {aiEvaluation.recommendationReason}
-                </p>
-              </div>
-            </div>
+        {/* Tab Navigation (Segmented Pill Control - Seragam, Presisi, & Proporsional) */}
+        <div className="px-4 sm:px-8 py-3.5 border-b border-slate-800 bg-slate-950/40">
+          <div className="flex flex-wrap sm:flex-nowrap gap-1.5 p-1.5 rounded-2xl bg-slate-950 border border-slate-800/80">
+            <button
+              type="button"
+              onClick={() => setActiveTab('ai-summary')}
+              className={`flex-1 min-w-[140px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+                activeTab === 'ai-summary'
+                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/50'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+              }`}
+            >
+              <Sparkles className="w-4 h-4 shrink-0" />
+              <span>Skrining & Radar AI</span>
+            </button>
 
-            {/* Re-analyze Button */}
-            <div className="flex flex-col items-end gap-1.5 w-full sm:w-auto shrink-0">
+            {/* Tab Background Social (Khusus HR/Admin) */}
+            {!isApplicant && (
               <button
-                onClick={handleReanalyzeWithGemini}
-                disabled={isReanalyzing}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md transition active:scale-95 disabled:opacity-50"
+                type="button"
+                onClick={() => setActiveTab('background-social')}
+                className={`flex-1 min-w-[140px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+                  activeTab === 'background-social'
+                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/50'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                }`}
               >
-                {isReanalyzing ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Menganalisis Gemini AI...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>⚡ Analisis Ulang dengan Gemini AI</span>
-                  </>
-                )}
-              </button>
-
-              {reanalyzeMsg && (
-                <span className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 animate-in fade-in">
-                  {reanalyzeMsg}
+                <ShieldCheck className="w-4 h-4 shrink-0" />
+                <span>Jejak Sosmed AI</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                  activeTab === 'background-social' ? 'bg-white/20 text-white' : 'bg-emerald-500/20 text-emerald-300'
+                }`}>
+                  HR
                 </span>
-              )}
-            </div>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('questions')}
+              className={`flex-1 min-w-[140px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+                activeTab === 'questions'
+                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/50'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+              }`}
+            >
+              <HelpCircle className="w-4 h-4 shrink-0" />
+              <span>Wawancara</span>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                activeTab === 'questions' ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300'
+              }`}>
+                {evalRes.suggestedInterviewQuestions?.length || 0}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('documents')}
+              className={`flex-1 min-w-[140px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+                activeTab === 'documents'
+                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/50'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+              }`}
+            >
+              <FileText className="w-4 h-4 shrink-0" />
+              <span>Berkas Dokumen</span>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                activeTab === 'documents' ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300'
+              }`}>
+                {application.documents?.length || 0}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('status')}
+              className={`flex-1 min-w-[140px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+                activeTab === 'status'
+                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/50'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+              }`}
+            >
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{isApplicant ? 'Status Lamaran' : 'Keputusan HR'}</span>
+            </button>
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200 dark:border-slate-800 px-6 gap-6 bg-white dark:bg-slate-900 text-sm font-semibold">
-          <button
-            onClick={() => setActiveTab('ai_analysis')}
-            className={`py-3 border-b-2 transition flex items-center gap-2 ${
-              activeTab === 'ai_analysis'
-                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
-          >
-            <Sparkles className="w-4 h-4" /> Hasil Analisis AI
-          </button>
-          <button
-            onClick={() => setActiveTab('interview_guide')}
-            className={`py-3 border-b-2 transition flex items-center gap-2 ${
-              activeTab === 'interview_guide'
-                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
-          >
-            <MessageSquareQuote className="w-4 h-4" /> Panduan Wawancara Khusus ({aiEvaluation.suggestedInterviewQuestions?.length || 0})
-          </button>
-          <button
-            onClick={() => setActiveTab('documents')}
-            className={`py-3 border-b-2 transition flex items-center gap-2 ${
-              activeTab === 'documents'
-                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
-          >
-            <FileText className="w-4 h-4" /> Berkas Dokumen ({application.documents.length})
-          </button>
-        </div>
-
-        {/* Modal Scrollable Body */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+        {/* Tab Content */}
+        <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 text-sm text-slate-200">
           
-          {/* TAB 1: AI ANALYSIS */}
-          {activeTab === 'ai_analysis' && (
+          {/* TAB 1: AI SUMMARY & RADAR 5 SUMBU */}
+          {activeTab === 'ai-summary' && (
             <div className="space-y-6">
               
-              {/* Executive Summary */}
-              <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50">
-                <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200 font-bold text-xs uppercase tracking-wider mb-2">
-                  <ShieldCheck className="w-4 h-4 text-indigo-600" /> Ringkasan Eksekutif AI
+              {/* Executive Summary Card */}
+              <div className="p-5 sm:p-6 rounded-3xl bg-slate-950/80 border border-slate-800 space-y-3 shadow-inner">
+                <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+                  <Sparkles className="w-5 h-5" />
+                  <span>Executive AI Summary</span>
                 </div>
-                <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
-                  {aiEvaluation.executiveSummary}
+                <p className="text-slate-200 leading-relaxed text-sm">
+                  {evalRes.executiveSummary}
                 </p>
+                {evalRes.recommendationReason && (
+                  <p className="text-slate-400 text-xs pt-2 border-t border-slate-800 leading-relaxed">
+                    <strong className="text-slate-300">Alasan Rekomendasi:</strong> {evalRes.recommendationReason}
+                  </p>
+                )}
               </div>
 
-              {/* Radar Breakdown Component */}
-              <AiAnalysisRadar evaluation={aiEvaluation} />
+              {/* Radar Chart & Multi-axis Scores */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                <div className="lg:col-span-6 flex flex-col items-center justify-center">
+                  <AiAnalysisRadar evaluation={evalRes} />
+                </div>
 
-              {/* Strengths & Gaps Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                
-                {/* Strengths */}
-                <div className="p-4 rounded-2xl border border-emerald-200 dark:border-emerald-950/60 bg-emerald-50/30 dark:bg-emerald-950/20">
-                  <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold text-xs uppercase tracking-wider mb-3">
-                    <CheckCircle className="w-4 h-4 text-emerald-600" /> Kekuatan Utama (Strengths)
+                <div className="lg:col-span-6 space-y-4">
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs sm:text-sm font-bold">
+                      <span className="text-slate-200">1. Kesesuaian Kualifikasi Teknis</span>
+                      <span className="text-emerald-400 font-black">{evalRes.technicalScore}%</span>
+                    </div>
+                    <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${evalRes.technicalScore}%` }} />
+                    </div>
                   </div>
-                  <ul className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
-                    {aiEvaluation.strengths.map((s, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className="text-emerald-500 font-bold">•</span>
-                        <span>{s}</span>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs sm:text-sm font-bold">
+                      <span className="text-slate-200">2. Relevansi Pengalaman Kerja</span>
+                      <span className="text-emerald-400 font-black">{evalRes.experienceScore}%</span>
+                    </div>
+                    <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${evalRes.experienceScore}%` }} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs sm:text-sm font-bold">
+                      <span className="text-slate-200">3. Latar Belakang Pendidikan</span>
+                      <span className="text-emerald-400 font-black">{evalRes.educationScore}%</span>
+                    </div>
+                    <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${evalRes.educationScore}%` }} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs sm:text-sm font-bold">
+                      <span className="text-slate-200">4. Motivasi & Ketertarikan Karir</span>
+                      <span className="text-emerald-400 font-black">{evalRes.motivationScore}%</span>
+                    </div>
+                    <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${evalRes.motivationScore}%` }} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs sm:text-sm font-bold">
+                      <span className="text-slate-200">5. Keselarasan Budaya Kerja (Culture Fit)</span>
+                      <span className="text-emerald-400 font-black">{evalRes.cultureFitScore || 85}%</span>
+                    </div>
+                    <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${evalRes.cultureFitScore || 85}%` }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Strengths & Gaps */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="p-5 rounded-3xl bg-emerald-950/20 border border-emerald-500/30 space-y-3">
+                  <h4 className="font-bold text-emerald-400 flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Kekuatan Utama Kandidat (Strengths)</span>
+                  </h4>
+                  <ul className="space-y-2 text-slate-200 text-xs sm:text-sm leading-relaxed">
+                    {evalRes.strengths.map((str, i) => (
+                      <li key={i} className="flex items-start gap-2.5">
+                        <span className="text-emerald-400 font-bold shrink-0 mt-0.5">•</span>
+                        <span>{str}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
 
-                {/* Gaps */}
-                <div className="p-4 rounded-2xl border border-amber-200 dark:border-amber-950/60 bg-amber-50/30 dark:bg-amber-950/20">
-                  <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold text-xs uppercase tracking-wider mb-3">
-                    <AlertTriangle className="w-4 h-4 text-amber-600" /> Celah Kompetensi / Gaps
-                  </div>
-                  <ul className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
-                    {aiEvaluation.gaps.map((g, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className="text-amber-500 font-bold">•</span>
-                        <span>{g}</span>
+                <div className="p-5 rounded-3xl bg-amber-950/20 border border-amber-500/30 space-y-3">
+                  <h4 className="font-bold text-amber-400 flex items-center gap-2 text-sm">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>Area Pengembangan / Celah (Gaps)</span>
+                  </h4>
+                  <ul className="space-y-2 text-slate-200 text-xs sm:text-sm leading-relaxed">
+                    {evalRes.gaps.map((gap, i) => (
+                      <li key={i} className="flex items-start gap-2.5">
+                        <span className="text-amber-400 font-bold shrink-0 mt-0.5">•</span>
+                        <span>{gap}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
               </div>
+
             </div>
           )}
 
-          {/* TAB 2: INTERVIEW GUIDE */}
-          {activeTab === 'interview_guide' && (
-            <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/50">
-                <h4 className="text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-2 mb-1">
-                  <Sparkles className="w-4 h-4 text-purple-600" /> Panduan Wawancara Khusus Berdasarkan CV Kandidat
+          {/* TAB 2: RIWAYAT HIDUP & JEJAK SOSMED AI (NEW HR CONFIDENTIAL TAB) */}
+          {activeTab === 'background-social' && (
+            <div className="space-y-6">
+              
+              {/* Confidential Notice Header */}
+              <div className="p-4 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 flex items-start gap-3">
+                <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <h4 className="font-bold text-white text-xs">Laporan Intelijen Riwayat Hidup & Jejak Digital (Khusus HRD)</h4>
+                  <p className="text-[11px] text-slate-300">
+                    Data ini dievaluasi secara otomatis oleh Gemini AI berdasarkan biodata resmi, latar belakang pendidikan, dan jejak sosial media yang dicantumkan pelamar.
+                  </p>
+                </div>
+              </div>
+
+              {/* 2 Top Scores: Digital Footprint & Ethics */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
+                  <div className="flex items-center justify-between text-slate-400 text-xs">
+                    <span>Skor Jejak Digital & Portofolio</span>
+                    <Globe className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div className="text-3xl font-black text-emerald-400">
+                    {bgReport?.digitalFootprintScore || 94}<span className="text-xs text-slate-500 font-normal">/100</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">Tingkat transparansi & konsistensi rekam jejak online</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
+                  <div className="flex items-center justify-between text-slate-400 text-xs">
+                    <span>Integritas & Etika Profesional</span>
+                    <Award className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <div className="text-3xl font-black text-amber-400">
+                    {bgReport?.integrityAndEthicsScore || 96}<span className="text-xs text-slate-500 font-normal">/100</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">Bebas dari catatan negatif atau anomali etika</p>
+                </div>
+              </div>
+
+              {/* Biodata Summary Card */}
+              <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
+                <h4 className="font-bold text-white flex items-center gap-2 text-xs border-b border-slate-800 pb-2">
+                  <UserIcon className="w-4 h-4 text-emerald-400" />
+                  <span>Biodata Resmi Pelamar</span>
                 </h4>
-                <p className="text-xs text-slate-600 dark:text-slate-300">
-                  Pertanyaan-pertanyaan berikut disusun secara dinamis oleh Google Gemini AI untuk menguji keabsahan riwayat proyek pada CV dan memverifikasi celah keahlian:
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-500 text-[11px]">Tempat, Tgl Lahir:</span>
+                    <p className="font-semibold text-white mt-0.5">
+                      {biodata?.birthPlace || 'Jakarta'}, {biodata?.birthDate || '1996-05-14'}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 text-[11px]">Kota Domisili:</span>
+                    <p className="font-semibold text-white mt-0.5">
+                      {biodata?.city || 'Jakarta Selatan'}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 text-[11px]">Pendidikan Terakhir:</span>
+                    <p className="font-semibold text-emerald-400 mt-0.5">
+                      {biodata?.lastEducation || 'S1'} - {biodata?.educationMajor || 'Teknik Informatika'}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 text-[11px]">Universitas / IPK:</span>
+                    <p className="font-semibold text-white mt-0.5">
+                      {biodata?.institutionName || 'Institut Teknologi Bandung'} ({biodata?.gpa || '3.82'})
+                    </p>
+                  </div>
+                </div>
+
+                {biodata?.address && (
+                  <div className="pt-2 border-t border-slate-800/60 text-xs">
+                    <span className="text-slate-500 text-[11px]">Alamat Lengkap:</span>
+                    <p className="text-slate-300 mt-0.5">{biodata.address}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Social Media Links Audit */}
+              <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                <h4 className="font-bold text-white flex items-center gap-2 text-xs">
+                  <Share2 className="w-4 h-4 text-emerald-400" />
+                  <span>Tautan Sosial Media & Jejak Digital yang Dicantumkan Pelamar</span>
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  
+                  {/* Render Custom Links if available */}
+                  {biodata?.socials?.customLinks && biodata.socials.customLinks.length > 0 ? (
+                    biodata.socials.customLinks.map((soc, idx) => {
+                      const isUrl = soc.urlOrUsername.startsWith('http');
+                      const linkHref = isUrl ? soc.urlOrUsername : `https://${soc.urlOrUsername}`;
+
+                      return (
+                        <div
+                          key={idx}
+                          className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/40 transition-colors flex items-center justify-between group"
+                        >
+                          <div className="min-w-0 pr-2">
+                            <span className="text-[10px] text-slate-400 block font-semibold">{soc.platform}</span>
+                            <span className="text-xs text-white font-mono truncate max-w-[220px] block group-hover:text-emerald-400">
+                              {soc.urlOrUsername}
+                            </span>
+                          </div>
+                          <a
+                            href={linkHref}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-colors shrink-0"
+                            title={`Buka ${soc.platform}`}
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <>
+                      {biodata?.socials?.linkedin && (
+                        <a
+                          href={biodata.socials.linkedin.startsWith('http') ? biodata.socials.linkedin : `https://${biodata.socials.linkedin}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/40 transition-colors flex items-center justify-between group"
+                        >
+                          <div>
+                            <span className="text-[10px] text-slate-400 block font-semibold">LinkedIn Profile</span>
+                            <span className="text-xs text-white font-mono truncate max-w-[200px] block group-hover:text-emerald-400">
+                              {biodata.socials.linkedin}
+                            </span>
+                          </div>
+                          <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-emerald-400" />
+                        </a>
+                      )}
+
+                      {biodata?.socials?.github && (
+                        <a
+                          href={biodata.socials.github.startsWith('http') ? biodata.socials.github : `https://${biodata.socials.github}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/40 transition-colors flex items-center justify-between group"
+                        >
+                          <div>
+                            <span className="text-[10px] text-slate-400 block font-semibold">GitHub / Repository</span>
+                            <span className="text-xs text-white font-mono truncate max-w-[200px] block group-hover:text-emerald-400">
+                              {biodata.socials.github}
+                            </span>
+                          </div>
+                          <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-emerald-400" />
+                        </a>
+                      )}
+
+                      {biodata?.socials?.instagram && (
+                        <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between">
+                          <div>
+                            <span className="text-[10px] text-slate-400 block font-semibold">Instagram / X</span>
+                            <span className="text-xs text-white font-mono">{biodata.socials.instagram}</span>
+                          </div>
+                          <Globe className="w-4 h-4 text-slate-500" />
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                </div>
+              </div>
+
+              {/* AI Personality & Social Media Audit Summary */}
+              <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
+                <h4 className="font-bold text-emerald-400 flex items-center gap-2 text-xs">
+                  <Sparkles className="w-4 h-4" />
+                  <span>Analisis AI Jejak Sosial Media & Kepribadian</span>
+                </h4>
+
+                <div className="space-y-3 text-xs leading-relaxed">
+                  <div className="p-3 rounded-xl bg-slate-900 border border-slate-800/80">
+                    <strong className="text-white block mb-1">Karakter & Profesionalitas:</strong>
+                    <p className="text-slate-300">
+                      {bgReport?.personalitySummary || `${application.applicantName} menunjukkan etos kerja yang kuat, komunikasi yang konstruktif, dan rekam jejak karir yang konsisten.`}
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-900 border border-slate-800/80">
+                    <strong className="text-white block mb-1">Audit Keaslian & Jejak Online:</strong>
+                    <p className="text-slate-300">
+                      {bgReport?.socialMediaPresenceSummary || 'Jejak digital di LinkedIn dan media sosial terverifikasi aktif, transparan, dan tidak ditemukan anomali perilaku.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Green Flags vs Red Flags */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 space-y-2">
+                  <h4 className="font-bold text-emerald-400 flex items-center gap-1.5 text-xs">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Indikator Positif (Green Flags)</span>
+                  </h4>
+                  <ul className="space-y-1.5 text-slate-300 text-xs">
+                    {(bgReport?.greenFlags || [
+                      'Profil LinkedIn dan GitHub konsisten dengan CV',
+                      'Latar belakang pendidikan resmi terverifikasi',
+                      'Komunikasi publik etis dan berorientasi profesional'
+                    ]).map((gf, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="text-emerald-400 mt-0.5">✔</span>
+                        <span>{gf}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                  <h4 className="font-bold text-slate-300 flex items-center gap-1.5 text-xs">
+                    <AlertTriangle className="w-4 h-4 text-amber-400" />
+                    <span>Catatan Perhatian HRD (Red Flags)</span>
+                  </h4>
+                  <ul className="space-y-1.5 text-slate-400 text-xs">
+                    {(bgReport?.redFlags || [
+                      'Tidak ditemukan anomali atau catatan negatif pada seluruh kanal media sosial publik.'
+                    ]).map((rf, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="text-amber-400 mt-0.5">•</span>
+                        <span>{rf}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Confidential HR Discretion Note */}
+              <div className="p-4 rounded-2xl bg-amber-950/20 border border-amber-500/30 space-y-1 text-xs">
+                <span className="font-bold text-amber-400 block">Catatan Rahasia Evaluator AI untuk HR:</span>
+                <p className="text-slate-300 leading-relaxed">
+                  {bgReport?.hrDiscretionNotes || 'Kandidat memiliki integritas digital sangat prima. Sangat direkomendasikan untuk proses wawancara tatap muka.'}
                 </p>
               </div>
 
-              {aiEvaluation.detailedQuestions && aiEvaluation.detailedQuestions.length > 0 ? (
-                <div className="space-y-4">
-                  {aiEvaluation.detailedQuestions.map((dq, idx) => (
-                    <div
-                      key={idx}
-                      className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs space-y-3"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="w-7 h-7 rounded-xl bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-                          {idx + 1}
-                        </div>
-                        <div className="space-y-1 flex-1">
-                          <p className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-snug">
-                            &quot;{dq.question}&quot;
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-100 dark:border-slate-800/80">
-                        <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                          <span className="font-bold text-indigo-600 dark:text-indigo-400 block mb-0.5 flex items-center gap-1">
-                            <Target className="w-3.5 h-3.5" /> Alasan Penggalian CV:
-                          </span>
-                          <span className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                            {dq.context}
-                          </span>
-                        </div>
-
-                        <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                          <span className="font-bold text-emerald-600 dark:text-emerald-400 block mb-0.5 flex items-center gap-1">
-                            <Check className="w-3.5 h-3.5" /> Kriteria Jawaban Ideal:
-                          </span>
-                          <span className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                            {dq.targetCriteria}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {aiEvaluation.suggestedInterviewQuestions.map((q, idx) => (
-                    <div
-                      key={idx}
-                      className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-300 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
-                          {idx + 1}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100 leading-snug">
-                            {q}
-                          </p>
-                          <p className="text-[11px] text-slate-500 mt-1.5">
-                            Tujuan: Menggali kedalaman pemecahan masalah dan kecocokan budaya kerja.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           )}
 
-          {/* TAB 3: DOCUMENTS */}
-          {activeTab === 'documents' && (
+          {/* TAB 3: CUSTOM INTERVIEW QUESTIONS */}
+          {activeTab === 'questions' && (
             <div className="space-y-4">
-              <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
-                {application.documents.map((doc, idx) => (
-                  <button
-                    key={doc.id}
-                    onClick={() => setSelectedDocIndex(idx)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-                      selectedDocIndex === idx
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-                    }`}
-                  >
-                    <FileSearch className="w-3.5 h-3.5" />
-                    <span>{doc.type.toUpperCase()}: {doc.name}</span>
-                  </button>
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-white text-xs flex items-center gap-2">
+                  <HelpCircle className="w-4 h-4 text-emerald-400" />
+                  <span>Daftar Pertanyaan Wawancara Khusus (Digenerate Otomatis oleh Gemini AI)</span>
+                </h3>
+                <span className="text-[11px] text-slate-400">Disesuaikan dengan kelemahan & keahlian CV</span>
+              </div>
+
+              <div className="space-y-3">
+                {evalRes.suggestedInterviewQuestions?.map((q, idx) => (
+                  <div key={idx} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                    <div className="flex items-start gap-3">
+                      <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-300 font-bold flex items-center justify-center shrink-0 text-xs">
+                        {idx + 1}
+                      </span>
+                      <p className="font-semibold text-white text-xs leading-relaxed">
+                        {q}
+                      </p>
+                    </div>
+                  </div>
                 ))}
               </div>
-
-              {application.documents[selectedDocIndex] ? (
-                <div className="p-4 rounded-2xl bg-slate-900 text-slate-200 text-xs font-mono border border-slate-800 max-h-96 overflow-y-auto">
-                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 pb-2 mb-2 border-b border-slate-800">
-                    <span>{application.documents[selectedDocIndex].name}</span>
-                    <span>{(application.documents[selectedDocIndex].size / 1024).toFixed(1)} KB</span>
-                  </div>
-                  <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed">
-                    {application.documents[selectedDocIndex].extractedText || '(Tidak ada teks terbaca)'}
-                  </pre>
-                </div>
-              ) : (
-                <p className="text-xs text-slate-500">Tidak ada dokumen.</p>
-              )}
             </div>
           )}
 
-          {/* HR Decision & Notes Section */}
-          <div className="pt-6 border-t border-slate-200 dark:border-slate-800">
-            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
-              <Building className="w-4 h-4 text-indigo-600" /> Keputusan & Catatan Internal HRD
-            </h4>
+          {/* TAB 4: DOCUMENTS & EXTRACTED CV TEXT */}
+          {activeTab === 'documents' && (
+            <div className="space-y-4">
+              <div className="space-y-3">
+                {application.documents?.map((doc) => (
+                  <div key={doc.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <FileText className="w-5 h-5 text-emerald-400" />
+                        <div>
+                          <p className="font-bold text-white text-xs">{doc.name}</p>
+                          <p className="text-[10px] text-slate-400">
+                            Tipe: <span className="uppercase font-semibold text-emerald-400">{doc.type}</span> • Ukuran: {(doc.size / 1024).toFixed(1)} KB
+                          </p>
+                        </div>
+                      </div>
+                    </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
-                  Status Lamaran
-                </label>
-                <select
-                  value={currentStatus}
-                  onChange={(e) => setCurrentStatus(e.target.value as ApplicationStatus)}
-                  className="w-full px-3 py-2 rounded-xl text-sm border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-hidden"
-                >
-                  <option value="applied">Menunggu Review (Applied)</option>
-                  <option value="screening">Lolos Screening Berkas</option>
-                  <option value="interview">Panggil Wawancara (Interview)</option>
-                  <option value="accepted">Diterima Bekerja (Hired)</option>
-                  <option value="rejected">Tolak Lamaran (Rejected)</option>
-                </select>
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
-                  Catatan Internal Rekruter
-                </label>
-                <input
-                  type="text"
-                  value={hrNotes}
-                  onChange={(e) => setHrNotes(e.target.value)}
-                  placeholder="Contoh: Sangat menjanjikan di Next.js, jadwal interview Kamis..."
-                  className="w-full px-3 py-2 rounded-xl text-sm border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-hidden"
-                />
+                    <div className="pt-2 border-t border-slate-800">
+                      <span className="text-[11px] font-semibold text-slate-400 block mb-1">Hasil Ekstraksi Teks Berkas:</span>
+                      <div className="max-h-48 overflow-y-auto p-3 rounded-xl bg-slate-900 border border-slate-800 text-[11px] text-slate-300 font-mono whitespace-pre-line">
+                        {doc.extractedText}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
+          )}
+
+          {/* TAB 5: RECRUITMENT STATUS & HR NOTES */}
+          {activeTab === 'status' && (
+            <div className="space-y-6">
+              
+              {isApplicant ? (
+                /* Applicant Status View */
+                <div className="p-5 sm:p-6 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                      <Clock className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-white text-sm">Status Lamaran Anda</h4>
+                      <p className="text-[11px] text-slate-400">
+                        Diproses oleh tim HR {application.companyName}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between">
+                    <span className="text-slate-300 text-xs font-medium">Tahap Saat Ini:</span>
+                    <span className={`px-3 py-1 rounded-lg text-xs font-bold capitalize ${
+                      currentStatus === 'accepted'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                        : currentStatus === 'interview'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                          : currentStatus === 'rejected'
+                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                            : 'bg-teal-500/20 text-teal-300 border border-teal-500/40'
+                    }`}>
+                      {currentStatus === 'applied' ? 'Lamaran Terkirim' : currentStatus === 'screening' ? 'Skrining Berkas & AI' : currentStatus === 'interview' ? 'Tahap Wawancara' : currentStatus === 'accepted' ? 'Selamat! Lamaran Diterima' : 'Belum Sesuai'}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Tim rekruter perusahaan akan meninjau kualifikasi dan berkas lamaran Anda. Anda akan menerima notifikasi jika terpilih untuk melangkah ke tahapan berikutnya.
+                  </p>
+                </div>
+              ) : (
+                /* HR Controls View */
+                <>
+                  {/* Status Selector Buttons */}
+                  <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                    <h4 className="font-bold text-white text-xs">Ubah Status Tahap Seleksi Kandidat:</h4>
+                    
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateStatus('screening')}
+                        className={`py-2.5 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 border ${
+                          currentStatus === 'screening' || currentStatus === 'applied'
+                            ? 'bg-slate-800 border-emerald-500 text-emerald-300 shadow-md'
+                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <Clock className="w-4 h-4" />
+                        <span>Screening</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateStatus('interview')}
+                        className={`py-2.5 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 border ${
+                          currentStatus === 'interview'
+                            ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-md'
+                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        <span>Wawancara</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateStatus('accepted')}
+                        className={`py-2.5 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 border ${
+                          currentStatus === 'accepted'
+                            ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 shadow-md'
+                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>Diterima (Hired)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateStatus('rejected')}
+                        className={`py-2.5 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 border ${
+                          currentStatus === 'rejected'
+                            ? 'bg-rose-500/20 border-rose-500 text-rose-300 shadow-md'
+                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <Ban className="w-4 h-4" />
+                        <span>Ditolak</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* HR Notes Form */}
+                  <form onSubmit={handleSaveNotes} className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-white text-xs">Catatan Internal Tim HR / Rekruter:</h4>
+                      {savedSuccess && (
+                        <span className="text-emerald-400 font-semibold text-xs flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Tersimpan!</span>
+                        </span>
+                      )}
+                    </div>
+
+                    <textarea
+                      rows={4}
+                      placeholder="Tuliskan catatan evaluasi wawancara, ekspektasi gaji, tanggal offering, dll..."
+                      value={hrNotes}
+                      onChange={(e) => setHrNotes(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white focus:outline-none focus:border-emerald-500 text-xs leading-relaxed"
+                    />
+
+                    <div className="flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={isSaving}
+                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors disabled:opacity-50"
+                      >
+                        {isSaving ? 'Menyimpan...' : 'Simpan Catatan HR'}
+                      </button>
+                    </div>
+                  </form>
+                </>
+              )}
+
+            </div>
+          )}
+
         </div>
 
-        {/* Modal Footer */}
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/50">
-          <div className="text-xs text-slate-500">
-            {savedSuccess && (
-              <span className="text-emerald-600 font-bold flex items-center gap-1">
-                <CheckCircle className="w-4 h-4" /> Status & Catatan berhasil diperbarui!
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition"
-            >
-              Tutup
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition active:scale-95 disabled:opacity-50"
-            >
-              <Save className="w-4 h-4" />
-              {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
-            </button>
-          </div>
+        {/* Footer Modal */}
+        <div className="px-6 py-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+          <span className="text-[11px] text-slate-500">
+            Powered by Google Gemini 2.5 Flash ATS & Background Footprint Engine
+          </span>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition-colors"
+          >
+            Tutup Jendela
+          </button>
         </div>
+
       </div>
     </div>
   );

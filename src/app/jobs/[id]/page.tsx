@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Job, DocumentAttachment, User } from '@/lib/types';
-import { getJobById, getCurrentUser, submitApplication, getSettings, initializeStorage } from '@/lib/storage';
+import { Job, DocumentAttachment, User, Application } from '@/lib/types';
+import { getJobById, getCurrentUser, submitApplication, getAllApplications, initializeStorage } from '@/lib/storage';
 import { evaluateApplicantWithAi } from '@/lib/ai-evaluator';
 import DocumentUploader from '@/components/DocumentUploader';
 import AiScoreBadge from '@/components/AiScoreBadge';
+import CandidateDetailModal from '@/components/CandidateDetailModal';
 import confetti from 'canvas-confetti';
 import Link from 'next/link';
 import {
@@ -23,7 +24,12 @@ import {
   Send,
   Loader2,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  Building2,
+  Lock,
+  ArrowRight,
+  User as UserIcon,
+  Eye
 } from 'lucide-react';
 
 export default function JobDetailPage() {
@@ -33,6 +39,10 @@ export default function JobDetailPage() {
 
   const [job, setJob] = useState<Job | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  // Existing application if candidate already applied
+  const [existingApplication, setExistingApplication] = useState<Application | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Form State
   const [applicantName, setApplicantName] = useState('');
@@ -61,74 +71,97 @@ export default function JobDetailPage() {
       setApplicantEmail(user.email);
       setApplicantPhone(user.phone || '');
       setApplicantHeadline(user.headline || '');
+
+      // Check if candidate already applied to this specific job
+      const apps = getAllApplications();
+      const match = apps.find(
+        (a) =>
+          a.jobId === jobId &&
+          (a.userId === user.id || a.applicantEmail.toLowerCase() === user.email.toLowerCase())
+      );
+      if (match) {
+        setExistingApplication(match);
+      }
     }
   }, [jobId]);
 
   if (!job) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-4">
-        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200">Lowongan tidak ditemukan</h2>
-        <p className="text-xs text-slate-500">Lowongan yang Anda cari mungkin telah ditutup atau tautan tidak valid.</p>
-        <Link href="/" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white">
-          <ArrowLeft className="w-4 h-4" /> Kembali ke Daftar Lowongan
+      <div className="max-w-4xl mx-auto py-16 px-4 text-center space-y-4">
+        <h2 className="text-xl font-bold text-white">Lowongan Tidak Ditemukan</h2>
+        <p className="text-xs text-slate-400">Lowongan yang Anda cari mungkin sudah ditutup atau tidak aktif.</p>
+        <Link href="/jobs" className="inline-flex items-center gap-2 text-xs text-emerald-400 font-semibold">
+          <ArrowLeft className="w-4 h-4" />
+          <span>Kembali ke Katalog Lowongan</span>
         </Link>
       </div>
     );
   }
 
-  const handleSubmitApplication = async (e: React.FormEvent) => {
+  const handleApplySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
 
-    // Validation
-    if (!applicantName.trim() || !applicantEmail.trim()) {
-      setErrorMsg('Harap lengkapi nama dan email pelamar.');
+    if (!currentUser) {
+      router.push(`/auth?callbackUrl=/jobs/${job.id}`);
       return;
     }
 
-    const hasCv = documents.some((d) => d.type === 'cv');
-    if (!hasCv) {
-      setErrorMsg('Harap unggah berkas CV / Resume Anda terlebih dahulu.');
+    if (existingApplication) {
+      setErrorMsg('Anda sudah pernah mengirimkan lamaran untuk lowongan ini.');
+      return;
+    }
+
+    if (!applicantName.trim() || !applicantEmail.trim()) {
+      setErrorMsg('Nama dan email wajib diisi.');
+      return;
+    }
+
+    const cvDoc = documents.find((d) => d.type === 'cv');
+    if (!cvDoc) {
+      setErrorMsg('Dokumen CV / Resume wajib diunggah untuk dapat dievaluasi oleh AI.');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // Step 1
-      setScreeningStep('Mengekstrak dan membaca seluruh isi dokumen berkas...');
+      // Step 1: Document extraction verification
+      setScreeningStep('1. Membaca teks dokumen CV, surat lamaran, & sertifikat...');
       await new Promise((r) => setTimeout(r, 600));
 
-      // Step 2
-      setScreeningStep('Google Gemini AI sedang menelaah kompetensi teknis, pengalaman kerja, & kualifikasi berkas...');
-      const settings = getSettings();
-      const evaluation = await evaluateApplicantWithAi({
+      // Step 2: Running Gemini AI ATS Engine
+      setScreeningStep('2. Menghubungi Google Gemini AI untuk analisis 5 dimensi kompetensi...');
+      
+      const aiEvaluation = await evaluateApplicantWithAi({
         job,
         documents,
         applicantName,
-        applicantHeadline,
-        geminiApiKey: settings.geminiApiKey,
-        preferredModel: settings.aiModel || 'gemini-3.6-flash'
+        applicantHeadline
       });
 
-      // Step 3
-      setScreeningStep('Menyusun skor relevansi dan ringkasan eksekutif AI...');
-      await new Promise((r) => setTimeout(r, 600));
+      // Step 3: Ranking & Storing Application
+      setScreeningStep('3. Menyimpan hasil skrining ke sistem ATS...');
+      await new Promise((r) => setTimeout(r, 400));
 
-      // Save application
-      const newApp = submitApplication({
+      const applicationRecord = submitApplication({
         jobId: job.id,
         jobTitle: job.title,
         jobDepartment: job.department,
+        companyId: job.companyId,
+        companyName: job.companyName,
         userId: currentUser?.id || `guest-${Date.now()}`,
         applicantName,
         applicantEmail,
         applicantPhone,
+        applicantHeadline,
         documents,
-        aiEvaluation: evaluation
+        aiEvaluation,
+        status: 'applied'
       });
 
-      setEvaluatedScore(evaluation.overallScore);
+      setExistingApplication(applicationRecord);
+      setEvaluatedScore(aiEvaluation.overallScore);
       setSubmissionSuccess(true);
 
       // Trigger Confetti
@@ -139,332 +172,434 @@ export default function JobDetailPage() {
           origin: { y: 0.6 }
         });
       } catch {}
-
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Terjadi kesalahan saat memproses lamaran.';
-      setErrorMsg(msg);
+    } catch (err) {
+      console.error('Submission & AI Screening error:', err);
+      setErrorMsg('Terjadi kendala saat melakukan evaluasi AI. Silakan coba kembali.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+    <div className="max-w-5xl mx-auto py-10 px-4 sm:px-6 lg:px-8 space-y-8">
       
-      {/* Back button & Breadcrumb */}
-      <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-        <Link href="/" className="hover:text-indigo-600 transition flex items-center gap-1">
-          <ArrowLeft className="w-3.5 h-3.5" /> Daftar Lowongan
-        </Link>
-        <span>/</span>
-        <span className="text-slate-800 dark:text-slate-200 font-medium truncate">{job.title}</span>
-      </div>
+      {/* Back Button */}
+      <Link
+        href="/jobs"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        <span>Kembali ke Daftar Loker</span>
+      </Link>
 
-      {/* SUCCESS BANNER MODAL IF SUBMITTED */}
-      {submissionSuccess && (
-        <div className="p-8 rounded-3xl bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-950 border border-emerald-500/40 text-white shadow-2xl space-y-6 animate-in zoom-in-95">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-            <div className="flex items-start gap-4">
-              <div className="p-3 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                <CheckCircle2 className="w-8 h-8" />
-              </div>
-              <div>
-                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
-                  Lamaran Berhasil Terkirim & Dianalisis AI!
-                </span>
-                <h3 className="text-2xl font-extrabold mt-1">
-                  Terima kasih, {applicantName}!
-                </h3>
-                <p className="text-xs text-slate-300 mt-1 max-w-xl">
-                  Sistem AI telah selesai mengekstrak dokumen berkas Anda dan memasukkan profil Anda ke dalam daftar peringkat pelamar di dashboard HRD.
-                </p>
-              </div>
+      {/* JOB HEADER CARD */}
+      <div className="p-6 sm:p-8 rounded-3xl bg-slate-900 border border-slate-800 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          
+          <div className="flex items-start gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0 shadow-md">
+              {job.companyLogo ? (
+                <img src={job.companyLogo} alt={job.companyName} className="w-full h-full object-cover" />
+              ) : (
+                <Building2 className="w-8 h-8 text-emerald-400" />
+              )}
             </div>
-
-            {evaluatedScore !== null && (
-              <div className="flex flex-col items-center p-4 rounded-2xl bg-slate-900/90 border border-slate-700 text-center min-w-[140px]">
-                <span className="text-3xl font-black text-emerald-400">{evaluatedScore}%</span>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
-                  AI Relevance Score
-                </span>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-emerald-400">{job.companyName}</span>
+                {job.companyIndustry && <span className="text-slate-500 text-xs">• {job.companyIndustry}</span>}
               </div>
-            )}
-          </div>
-
-          <div className="pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-4">
-            <div className="text-xs text-slate-400">
-              Tim HRD akan mereview peringkat kecocokan Anda untuk tahapan wawancara selanjutnya.
-            </div>
-            <div className="flex items-center gap-3">
-              <Link
-                href="/user/applications"
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-lg"
-              >
-                <FileCheck className="w-4 h-4" /> Lihat Status Lamaran Saya
-              </Link>
-              <Link
-                href="/"
-                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition"
-              >
-                Cari Lowongan Lain
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Main Grid: Job Specs (Left) & Application Form (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        {/* Left Column: Job Details */}
-        <div className="lg:col-span-7 space-y-6">
-          <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
-            
-            {/* Header */}
-            <div>
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-                  {job.department}
-                </span>
-                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  {job.type}
-                </span>
-              </div>
-
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100">
-                {job.title}
-              </h1>
-
-              {/* Meta Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 text-xs">
-                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Lokasi</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1 mt-0.5">
-                    <MapPin className="w-3.5 h-3.5 text-indigo-500" /> {job.location}
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Pengalaman</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1 mt-0.5">
-                    <Briefcase className="w-3.5 h-3.5 text-blue-500" /> {job.experienceLevel}
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Pendidikan</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1 mt-0.5 truncate" title={job.minEducation}>
-                    <GraduationCap className="w-3.5 h-3.5 text-emerald-500" /> {job.minEducation.split('/')[0]}
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Estimasi Gaji</span>
-                  <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5 truncate">
-                    <DollarSign className="w-3.5 h-3.5 text-emerald-500" /> {job.salaryRange.split('/')[0]}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">
-                Deskripsi Pekerjaan
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                {job.description}
+              <h1 className="text-2xl sm:text-3xl font-black text-white">{job.title}</h1>
+              <p className="text-xs text-slate-400">
+                {job.department} • {job.location}
               </p>
             </div>
+          </div>
 
-            {/* Key Skills */}
-            <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">
-                Keahlian Kunci yang Dicari AI (Key Skills)
+          <div className="flex items-center gap-2 self-start">
+            <span className="px-3 py-1 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+              {job.type}
+            </span>
+          </div>
+
+        </div>
+
+        {/* Highlight Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-800 text-xs">
+          <div className="p-3 rounded-2xl bg-slate-950/70 border border-slate-800/80 space-y-1">
+            <span className="text-slate-400 text-[11px] block">Pengalaman:</span>
+            <span className="font-bold text-white block">{job.experienceLevel}</span>
+          </div>
+          <div className="p-3 rounded-2xl bg-slate-950/70 border border-slate-800/80 space-y-1">
+            <span className="text-slate-400 text-[11px] block">Kisaran Gaji:</span>
+            <span className="font-bold text-emerald-400 block">{job.salaryRange || 'Kompetitif'}</span>
+          </div>
+          <div className="p-3 rounded-2xl bg-slate-950/70 border border-slate-800/80 space-y-1">
+            <span className="text-slate-400 text-[11px] block">Pendidikan Min:</span>
+            <span className="font-bold text-white block">{job.minEducation || 'S1 / Sederajat'}</span>
+          </div>
+          <div className="p-3 rounded-2xl bg-slate-950/70 border border-slate-800/80 space-y-1">
+            <span className="text-slate-400 text-[11px] block">Batas Akhir:</span>
+            <span className="font-bold text-white block">
+              {job.deadline ? new Date(job.deadline).toLocaleDateString('id-ID') : 'Terbuka'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* TWO COLUMNS: JOB DETAILS & APPLICATION FORM */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        {/* LEFT: JOB DETAILS (7 cols) */}
+        <div className="lg:col-span-7 space-y-6 text-xs">
+          
+          {/* Key Skills */}
+          <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
+                Keahlian Kunci Wajib (Dinilai oleh AI)
               </h3>
-              <div className="flex flex-wrap gap-2">
-                {job.keySkills.map((skill) => (
-                  <span
-                    key={skill}
-                    className="px-3 py-1 rounded-xl text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800"
-                  >
-                    {skill}
-                  </span>
-                ))}
-              </div>
             </div>
+            <div className="flex flex-wrap gap-2">
+              {job.keySkills.map((skill, idx) => (
+                <span
+                  key={idx}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 font-semibold text-xs"
+                >
+                  {skill}
+                </span>
+              ))}
+            </div>
+          </div>
 
-            {/* Requirements */}
-            <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">
-                Kualifikasi & Persyaratan
+          {/* Description */}
+          <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-3">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+              Deskripsi Pekerjaan
+            </h3>
+            <p className="text-slate-300 leading-relaxed whitespace-pre-line">
+              {job.description}
+            </p>
+          </div>
+
+          {/* Requirements */}
+          <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-3">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+              Kualifikasi & Persyaratan
+            </h3>
+            <ul className="space-y-2 text-slate-300 leading-relaxed">
+              {job.requirements.map((req, i) => (
+                <li key={i} className="flex items-start gap-2.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
+                  <span>{req}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Responsibilities */}
+          {job.responsibilities && job.responsibilities.length > 0 && (
+            <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-3">
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                Tanggung Jawab Utama
               </h3>
-              <ul className="space-y-2 text-xs sm:text-sm text-slate-700 dark:text-slate-300">
-                {job.requirements.map((req, idx) => (
-                  <li key={idx} className="flex items-start gap-2.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 mt-2 shrink-0" />
-                    <span>{req}</span>
+              <ul className="space-y-2 text-slate-300 leading-relaxed">
+                {job.responsibilities.map((resp, i) => (
+                  <li key={i} className="flex items-start gap-2.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
+                    <span>{resp}</span>
                   </li>
                 ))}
               </ul>
             </div>
+          )}
 
-            {/* Responsibilities */}
-            {job.responsibilities && job.responsibilities.length > 0 && (
-              <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">
-                  Tanggung Jawab Utama
-                </h3>
-                <ul className="space-y-2 text-xs sm:text-sm text-slate-700 dark:text-slate-300">
-                  {job.responsibilities.map((resp, idx) => (
-                    <li key={idx} className="flex items-start gap-2.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 mt-2 shrink-0" />
-                      <span>{resp}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-          </div>
         </div>
 
-        {/* Right Column: Interactive Application Form & Document Uploader */}
-        <div className="lg:col-span-5 space-y-6">
-          <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm sticky top-28">
+        {/* RIGHT: APPLICATION FORM & STATUS (5 cols) */}
+        <div className="lg:col-span-5">
+          <div className="sticky top-24 space-y-6">
             
-            <div className="mb-6">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 mb-2">
-                <Sparkles className="w-3.5 h-3.5" /> Formulir Pendaftaran Online
-              </div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                Lamar Posisi Ini
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Unggah berkas CV dan dokumen pendukung. AI kami akan memproses berkas Anda secara instan.
-              </p>
-            </div>
-
-            {errorMsg && (
-              <div className="p-3.5 mb-6 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{errorMsg}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmitApplication} className="space-y-5">
-              
-              {/* Applicant Info Fields */}
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Nama Lengkap Pelamar <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={applicantName}
-                    onChange={(e) => setApplicantName(e.target.value)}
-                    placeholder="Contoh: Budi Santoso"
-                    className="w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-hidden"
-                  />
+            {/* 1. JIKA BELUM LOGIN: TAMPILKAN KARTU WAJIB LOGIN */}
+            {!currentUser ? (
+              <div className="p-6 sm:p-7 rounded-3xl bg-slate-900 border border-slate-800 space-y-5 text-xs text-center shadow-2xl">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto shadow-md">
+                  <Lock className="w-7 h-7" />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <h3 className="text-base font-bold text-white">Masuk Akun untuk Melamar</h3>
+                  <p className="text-slate-400 text-xs leading-relaxed max-w-xs mx-auto">
+                    Anda harus masuk sebagai pelamar terlebih dahulu untuk mengunggah CV dan mendapatkan analisis skor AI di <strong>{job.companyName}</strong>.
+                  </p>
+                </div>
+
+                <div className="space-y-2.5 pt-2">
+                  <Link
+                    href={`/auth?callbackUrl=/jobs/${job.id}`}
+                    className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 transition-all hover:scale-[1.02]"
+                  >
+                    <UserIcon className="w-4 h-4" />
+                    <span>Masuk Akun / Login Pelamar</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+
+                  <Link
+                    href={`/auth?callbackUrl=/jobs/${job.id}`}
+                    className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs block transition-colors border border-slate-700"
+                  >
+                    Daftar Akun Baru (Gratis)
+                  </Link>
+                </div>
+
+                <p className="text-[11px] text-slate-500">
+                  Dapat masuk langsung menggunakan Akun Google dalam 1 klik.
+                </p>
+              </div>
+            ) : (!currentUser.profileCompleted && !(currentUser.biodata?.institutionName && currentUser.biodata?.educationMajor)) ? (
+              /* 2. JIKA BIODATA BELUM LENGKAP: WAJIBKAN ISI BIODATA DULU */
+              <div className="p-6 sm:p-7 rounded-3xl bg-slate-900 border border-amber-500/40 space-y-5 text-xs text-center shadow-2xl relative overflow-hidden">
+                <div className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto shadow-md">
+                  <UserIcon className="w-7 h-7" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold uppercase tracking-wider">
+                    <span>Langkah Wajib</span>
+                  </div>
+                  <h3 className="text-base font-bold text-white">Lengkapi Biodata & Profil Anda</h3>
+                  <p className="text-slate-400 text-xs leading-relaxed max-w-xs mx-auto">
+                    Sebelum dapat mengunggah berkas lamaran dan mengirimkan CV untuk posisi ini di <strong>{job.companyName}</strong>, Anda wajib melengkapi data pribadi dan riwayat pendidikan terlebih dahulu.
+                  </p>
+                </div>
+
+                <div className="pt-2 space-y-2">
+                  <Link
+                    href={`/user/profile?callbackUrl=/jobs/${job.id}`}
+                    className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 transition-all hover:scale-[1.02]"
+                  >
+                    <UserIcon className="w-4 h-4" />
+                    <span>Lengkapi Biodata & Profil Sekarang</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+
+                <p className="text-[11px] text-slate-500">
+                  Data biodata akan otomatis tersimpan dan langsung siap digunakan untuk melamar lowongan ini.
+                </p>
+              </div>
+            ) : existingApplication ? (
+              /* 3. JIKA SUDAH PERNAH MELAMAR LOKER INI: GABISA LAMAR LAGI & TAMPILKAN HASIL RIWAYAT */
+              <div className="p-6 sm:p-7 rounded-3xl bg-slate-900 border border-emerald-500/40 space-y-5 text-xs shadow-2xl relative overflow-hidden">
+                <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold shrink-0">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Email <span className="text-rose-500">*</span>
-                    </label>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
+                      Sudah Dilamar
+                    </span>
+                    <h3 className="text-base font-bold text-white mt-0.5">Anda Sudah Melamar Lowongan Ini</h3>
+                    <p className="text-slate-400 text-[11px]">
+                      Dikirim pada {new Date(existingApplication.appliedDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400 font-medium">Status Lamaran:</span>
+                    <span className="font-bold text-emerald-400 capitalize px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                      {existingApplication.status === 'applied'
+                        ? 'Terkirim & Menunggu Review'
+                        : existingApplication.status === 'screening'
+                          ? 'Skrining Berkas AI'
+                          : existingApplication.status === 'interview'
+                            ? 'Tahap Wawancara'
+                            : existingApplication.status === 'accepted'
+                              ? 'Selamat! Diterima'
+                              : 'Belum Sesuai'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400 font-medium">Skor Kesesuaian AI:</span>
+                    <span className="font-black text-emerald-400 text-sm">
+                      {existingApplication.aiEvaluation?.overallScore || 0}% ({existingApplication.aiEvaluation?.recommendation || 'Kandidat Unggul'})
+                    </span>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-slate-400">
+                    <span>Dokumen Terunggah:</span>
+                    <span className="font-semibold text-white">{existingApplication.documents?.length || 1} Berkas PDF/DOC</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(true)}
+                    className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 transition-all hover:scale-[1.02]"
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span>Lihat Hasil Skrining & Riwayat Lamaran</span>
+                  </button>
+
+                  <Link
+                    href="/user/applications"
+                    className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs block text-center transition-colors border border-slate-700"
+                  >
+                    Buka Portal Status Lamaran Saya
+                  </Link>
+                </div>
+              </div>
+            ) : !submissionSuccess ? (
+              /* 4. FORMULIR PENGISIAN LAMARAN & UPLOAD CV */
+              <div className="p-6 sm:p-7 rounded-3xl bg-slate-900 border border-slate-800 space-y-6 text-xs shadow-2xl">
+                <form onSubmit={handleApplySubmit} className="space-y-4">
+                  <div>
+                    <h3 className="text-base font-bold text-white">Formulir Lamaran Cerdas</h3>
+                    <p className="text-slate-400 text-[11px] mt-0.5">
+                      Unggah CV Anda dan sistem AI Gemini akan langsung mengevaluasi profil Anda untuk tim HR {job.companyName}.
+                    </p>
+                  </div>
+
+                  {errorMsg && (
+                    <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{errorMsg}</span>
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <label className="font-semibold text-slate-300">Nama Lengkap: *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Nama Anda"
+                      value={applicantName}
+                      onChange={(e) => setApplicantName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="font-semibold text-slate-300">Email: *</label>
                     <input
                       type="email"
                       required
+                      placeholder="email@domain.com"
                       value={applicantEmail}
                       onChange={(e) => setApplicantEmail(e.target.value)}
-                      placeholder="nama@email.com"
-                      className="w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-hidden"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Nomor WhatsApp / HP
-                    </label>
+                  <div className="space-y-1">
+                    <label className="font-semibold text-slate-300">No. WhatsApp/HP:</label>
                     <input
                       type="tel"
+                      placeholder="0812xxxxxxxx"
                       value={applicantPhone}
                       onChange={(e) => setApplicantPhone(e.target.value)}
-                      placeholder="08123456789"
-                      className="w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-hidden"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500"
                     />
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Headline Profesional Singkat
-                  </label>
-                  <input
-                    type="text"
-                    value={applicantHeadline}
-                    onChange={(e) => setApplicantHeadline(e.target.value)}
-                    placeholder="Contoh: Frontend Developer dengan 3 tahun pengalaman di React"
-                    className="w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-hidden"
-                  />
-                </div>
-              </div>
-
-              {/* Upload Documents Component */}
-              <div className="pt-2">
-                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-2">
-                  Unggah Berkas Pendukung:
-                </label>
-                <DocumentUploader
-                  documents={documents}
-                  onDocumentsChange={setDocuments}
-                />
-              </div>
-
-              {/* AI Processing status banner when submitting */}
-              {isSubmitting && (
-                <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 space-y-2 text-center">
-                  <div className="flex items-center justify-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-xs">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Sedang Memproses Berkas...</span>
+                  {/* Multi-Document Uploader */}
+                  <div className="space-y-2 pt-2 border-t border-slate-800">
+                    <label className="font-semibold text-slate-300">Unggah Berkas Dokumen:</label>
+                    <DocumentUploader
+                      documents={documents}
+                      onDocumentsChange={setDocuments}
+                    />
                   </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
-                    {screeningStep}
+
+                  {/* Submitting Progress Indicator */}
+                  {isSubmitting && (
+                    <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 space-y-2 text-[11px]">
+                      <div className="flex items-center gap-2 font-bold">
+                        <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                        <span>Proses Evaluasi AI Sedang Berjalan...</span>
+                      </div>
+                      <p className="text-slate-300 font-mono text-[10px]">{screeningStep}</p>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 disabled:opacity-50"
+                  >
+                    {isSubmitting ? (
+                      <span>Mengevaluasi Berkas...</span>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Kirim Lamaran & Skrining AI</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+            ) : (
+              /* SUBMISSION SUCCESS CARD */
+              <div className="p-6 sm:p-7 rounded-3xl bg-slate-900 border border-slate-800 space-y-5 text-center shadow-2xl">
+                <div className="w-14 h-14 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto">
+                  <CheckCircle2 className="w-8 h-8" />
+                </div>
+
+                <div className="space-y-1">
+                  <h4 className="text-base font-bold text-white">Lamaran Berhasil Dikirim!</h4>
+                  <p className="text-xs text-slate-300">
+                    Berkas Anda telah selesai dianalisis secara instan oleh Gemini AI.
                   </p>
                 </div>
-              )}
 
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 active:scale-[0.98] transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Menganalisis dengan AI...</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    <span>Kirim Lamaran & Mulai Screening AI</span>
-                  </>
+                {evaluatedScore !== null && (
+                  <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2 text-xs">
+                    <span className="text-slate-400">Skor Kecocokan AI Anda:</span>
+                    <div className="text-3xl font-black text-emerald-400">{evaluatedScore}%</div>
+                    <p className="text-[11px] text-slate-400">
+                      Tim HR <strong className="text-white">{job.companyName}</strong> telah menerima evaluasi radar kompetensi Anda.
+                    </p>
+                  </div>
                 )}
-              </button>
 
-              <p className="text-[11px] text-center text-slate-400 leading-tight">
-                🔒 Berkas Anda dianalisis secara aman oleh AI Engine untuk evaluasi relevansi posisi.
-              </p>
-            </form>
+                <div className="space-y-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(true)}
+                    className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 transition-all hover:scale-[1.02]"
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span>Lihat Hasil Skrining & Evaluasi AI</span>
+                  </button>
+
+                  <Link
+                    href="/user/applications"
+                    className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs block text-center transition-colors border border-slate-700"
+                  >
+                    Pantau di Portal Lamaran Saya
+                  </Link>
+                </div>
+              </div>
+            )}
 
           </div>
         </div>
 
       </div>
+
+      {/* Modal for viewing submitted application */}
+      {isModalOpen && existingApplication && (
+        <CandidateDetailModal
+          application={existingApplication}
+          onClose={() => setIsModalOpen(false)}
+          isApplicantView={true}
+        />
+      )}
 
     </div>
   );

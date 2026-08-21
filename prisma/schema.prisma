@@ -1,0 +1,186 @@
+datasource db {
+  provider = "mysql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPER_ADMIN
+  COMPANY_ADMIN
+  APPLICANT
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  REMOTE
+  HYBRID
+}
+
+enum ApplicationStatus {
+  APPLIED
+  SCREENING
+  INTERVIEW
+  ACCEPTED
+  REJECTED
+}
+
+enum FitLevel {
+  TOP_MATCH
+  HIGH_MATCH
+  MODERATE_MATCH
+  LOW_MATCH
+}
+
+enum Recommendation {
+  STRONGLY_RECOMMENDED
+  INTERVIEW
+  CONSIDER
+  NOT_SUITABLE
+}
+
+model User {
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  password      String?
+  image         String?
+  role          Role           @default(APPLICANT)
+  phone         String?
+  headline      String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  companyId     String?
+  company       Company?       @relation(fields: [companyId], references: [id])
+  applications  Application[]
+}
+
+model Company {
+  id            String         @id @default(cuid())
+  name          String
+  slug          String         @unique
+  logo          String?
+  description   String?        @db.Text
+  industry      String?
+  website       String?
+  address       String?
+  isVerified    Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  users         User[]
+  jobs          Job[]
+  subscriptions Subscription[]
+}
+
+model CompanyInvitationToken {
+  id          String    @id @default(cuid())
+  token       String    @unique
+  email       String
+  packageType String
+  isUsed      Boolean   @default(false)
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+}
+
+model Subscription {
+  id              String       @id @default(cuid())
+  companyId       String
+  company         Company      @relation(fields: [companyId], references: [id])
+  orderId         String       @unique
+  packageName     String
+  amount          Float
+  status          String
+  startDate       DateTime     @default(now())
+  endDate         DateTime
+  createdAt       DateTime     @default(now())
+  transactions    Transaction[]
+}
+
+model Transaction {
+  id              String        @id @default(cuid())
+  orderId         String        @unique
+  subscriptionId  String?
+  subscription    Subscription? @relation(fields: [subscriptionId], references: [id])
+  amount          Float
+  paymentType     String?
+  status          String
+  rawMidtransRes  Json?
+  createdAt       DateTime      @default(now())
+}
+
+model Job {
+  id              String         @id @default(cuid())
+  companyId       String
+  company         Company        @relation(fields: [companyId], references: [id])
+  title           String
+  department      String
+  location        String
+  type            JobType        @default(FULL_TIME)
+  experienceLevel String
+  salaryRange     String?
+  description     String         @db.Text
+  requirements    Json
+  responsibilities Json
+  keySkills       Json
+  minEducation    String?
+  status          String         @default("ACTIVE")
+  deadline        DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  applications    Application[]
+}
+
+model Application {
+  id              String            @id @default(cuid())
+  jobId           String
+  job             Job               @relation(fields: [jobId], references: [id])
+  userId          String
+  user            User              @relation(fields: [userId], references: [id])
+  status          ApplicationStatus @default(APPLIED)
+  appliedDate     DateTime          @default(now())
+  hrNotes         String?           @db.Text
+
+  documents       Document[]
+  aiEvaluation    AiEvaluation?
+}
+
+model Document {
+  id            String       @id @default(cuid())
+  applicationId String
+  application   Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  name          String
+  type          String
+  fileUrl       String
+  extractedText String?      @db.LongText
+  uploadedAt    DateTime     @default(now())
+}
+
+model AiEvaluation {
+  id                  String          @id @default(cuid())
+  applicationId       String          @unique
+  application         Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  overallScore        Int
+  technicalScore      Int
+  experienceScore     Int
+  educationScore      Int
+  motivationScore     Int
+  cultureFitScore     Int?
+  fitLevel            FitLevel
+  recommendation      Recommendation
+  executiveSummary    String          @db.Text
+  recommendationReason String         @db.Text
+  strengths           Json
+  gaps                Json
+  matchedSkills       Json
+  missingSkills       Json
+  suggestedQuestions  Json
+  modelUsed           String
+  latencyMs           Int?
+  analyzedAt          DateTime        @default(now())
+}
