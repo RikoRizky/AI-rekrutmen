@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
       where: { id: userId },
       data: {
         ...(biodata.fullName && { name: biodata.fullName }),
+        ...(biodata.phone && { phone: biodata.phone }),
         ...(avatarUrl && { image: avatarUrl }),
         biodata: JSON.parse(JSON.stringify(biodata)),
         profileCompleted: true,

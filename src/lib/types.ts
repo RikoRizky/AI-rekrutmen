@@ -31,6 +31,7 @@ export interface AiBackgroundReport {
 
 export interface UserBiodata {
   fullName: string;
+  phone?: string;
   birthDate?: string;
   birthPlace?: string;
   address?: string;

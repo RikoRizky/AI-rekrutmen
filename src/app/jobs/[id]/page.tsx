@@ -67,9 +67,9 @@ export default function JobDetailPage() {
     const user = getCurrentUser();
     if (user) {
       setCurrentUser(user);
-      setApplicantName(user.name);
+      setApplicantName(user.biodata?.fullName || user.name);
       setApplicantEmail(user.email);
-      setApplicantPhone(user.phone || '');
+      setApplicantPhone(user.biodata?.phone || user.phone || '');
       setApplicantHeadline(user.headline || '');
 
       // Check if candidate already applied to this specific job

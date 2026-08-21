@@ -688,6 +688,7 @@ export function updateUserBiodata(userId: string, biodata: UserBiodata, avatarUr
   users[index] = {
     ...users[index],
     name: biodata.fullName || users[index].name,
+    phone: biodata.phone || users[index].phone,
     avatar: avatarUrl || users[index].avatar,
     biodata,
     profileCompleted: true

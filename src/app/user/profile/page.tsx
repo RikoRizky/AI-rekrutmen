@@ -26,7 +26,8 @@ import {
   Info,
   Camera,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Phone
 } from 'lucide-react';
 
 const PRESET_PLATFORMS = [
@@ -67,6 +68,7 @@ function ProfileContent() {
 
   // Form State - Biodata
   const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [birthPlace, setBirthPlace] = useState('');
   const [address, setAddress] = useState('');
@@ -111,6 +113,7 @@ function ProfileContent() {
 
     // Populate existing values if available
     setFullName(user.biodata?.fullName || user.name || '');
+    setPhone(user.biodata?.phone || user.phone || '');
     setBirthDate(user.biodata?.birthDate || '');
     setBirthPlace(user.biodata?.birthPlace || '');
     setAddress(user.biodata?.address || '');
@@ -233,6 +236,7 @@ function ProfileContent() {
 
       const rawBiodata: UserBiodata = {
         fullName: fullName.trim(),
+        phone: phone.trim(),
         birthDate: birthDate.trim(),
         birthPlace: birthPlace.trim(),
         address: address.trim(),
@@ -506,6 +510,22 @@ function ProfileContent() {
                 onChange={(e) => setFullName(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500 font-medium"
               />
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
+              <label className="font-semibold text-slate-300">No. WhatsApp / Nomor Telepon: *</label>
+              <div className="relative">
+                <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="tel"
+                  required
+                  placeholder="Contoh: 081234567890"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <p className="text-[11px] text-slate-500">Nomor ini akan otomatis terisi saat Anda mengirim lamaran ke lowongan kerja.</p>
             </div>
 
             <div className="space-y-1.5">
