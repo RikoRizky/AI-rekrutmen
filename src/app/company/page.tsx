@@ -72,7 +72,7 @@ export default function CompanyPortalPage() {
   const [saveSuccessMsg, setSaveSuccessMsg] = useState(false);
 
   const sanitizeLogo = (comp: Company): string => {
-    if (!comp.logo || comp.logo.includes('photo-1599305445671-ac291c95aaa9')) {
+    if (!comp.logo || comp.logo.includes('photo-1599305445671-ac291c95aaa9') || comp.logo.startsWith('data:image/svg+xml')) {
       return getDefaultCompanyLogo(comp.name);
     }
     return comp.logo;

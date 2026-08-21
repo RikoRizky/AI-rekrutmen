@@ -369,11 +369,11 @@ export function getDefaultUserAvatar(name: string): string {
     .toUpperCase() || 'PL';
 
   const colors = [
-    { from: '#059669', to: '#0d9488', ring: '#10b981' }, // Emerald / Teal
-    { from: '#0284c7', to: '#0369a1', ring: '#38bdf8' }, // Sky / Blue
-    { from: '#4f46e5', to: '#4338ca', ring: '#818cf8' }, // Indigo
-    { from: '#7c3aed', to: '#6d28d9', ring: '#a78bfa' }, // Violet
-    { from: '#0d9488', to: '#115e59', ring: '#2dd4bf' }  // Teal
+    { from: '#059669', to: '#047857', ring: '#10b981', badgeBg: '#064e3b' }, // Emerald Green
+    { from: '#0d9488', to: '#0f766e', ring: '#2dd4bf', badgeBg: '#134e4a' }, // Teal
+    { from: '#10b981', to: '#059669', ring: '#34d399', badgeBg: '#064e3b' }, // Mint
+    { from: '#15803d', to: '#166534', ring: '#4ade80', badgeBg: '#14532d' }, // Forest Green
+    { from: '#0f766e', to: '#115e59', ring: '#2dd4bf', badgeBg: '#134e4a' }  // Deep Teal
   ];
   const charCodeSum = cleanName.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
   const color = colors[charCodeSum % colors.length];
@@ -385,13 +385,13 @@ export function getDefaultUserAvatar(name: string): string {
         <stop offset="100%" stop-color="${color.to}" />
       </linearGradient>
     </defs>
-    <rect width="128" height="128" rx="36" fill="#0f172a" />
-    <circle cx="64" cy="64" r="56" fill="url(#userGrad)" />
-    <!-- Candidate Person Silhouette -->
-    <circle cx="64" cy="48" r="19" fill="#ffffff" fill-opacity="0.95" />
-    <path d="M34 100c0-16.569 13.431-30 30-30s30 13.431 30 30" fill="#ffffff" fill-opacity="0.95" />
-    <!-- Badge with Initials -->
-    <rect x="36" y="90" width="56" height="24" rx="12" fill="#0f172a" fill-opacity="0.95" stroke="${color.ring}" stroke-width="2" />
+    <rect width="128" height="128" rx="36" fill="#090d16" />
+    <circle cx="64" cy="64" r="54" fill="url(#userGrad)" />
+    <!-- Candidate Silhouette -->
+    <circle cx="64" cy="46" r="18" fill="#ffffff" fill-opacity="0.95" />
+    <path d="M36 96c0-15.464 12.536-28 28-28s28 12.536 28 28" fill="#ffffff" fill-opacity="0.95" />
+    <!-- Candidate Initials Pill Badge -->
+    <rect x="36" y="90" width="56" height="24" rx="12" fill="${color.badgeBg}" stroke="${color.ring}" stroke-width="2" />
     <text x="64" y="106" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="1">${initials}</text>
   </svg>`;
 
@@ -399,21 +399,29 @@ export function getDefaultUserAvatar(name: string): string {
 }
 
 export function getDefaultCompanyLogo(name: string): string {
-  const cleanName = (name || 'PT').trim();
-  const initials = cleanName
-    .split(' ')
-    .filter(Boolean)
-    .map((n) => n[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase() || 'PT';
+  const cleanName = (name || 'PT Perusahaan').trim();
+  
+  // Intelligent Company Initials Extraction (strip PT, CV, etc.)
+  const withoutPrefix = cleanName.replace(/^(PT\.?|CV\.?|UD\.?|INC\.?|CORP\.?|LTD\.?)\s+/i, '').trim();
+  let initials = '';
+  if (withoutPrefix.length > 0 && withoutPrefix.length <= 4) {
+    initials = withoutPrefix.toUpperCase();
+  } else {
+    const words = withoutPrefix.split(' ').filter(Boolean);
+    if (words.length === 1) {
+      initials = words[0].slice(0, 3).toUpperCase();
+    } else {
+      initials = words.map((w) => w[0]).slice(0, 3).join('').toUpperCase();
+    }
+  }
+  if (!initials) initials = 'PT';
 
   const colors = [
-    { from: '#059669', to: '#0f766e' },
-    { from: '#2563eb', to: '#1d4ed8' },
-    { from: '#7c3aed', to: '#6d28d9' },
-    { from: '#0891b2', to: '#0e7490' },
-    { from: '#d97706', to: '#b45309' }
+    { from: '#1e3a8a', to: '#172554', accent: '#38bdf8', glow: '#60a5fa', badgeBg: '#0f172a' }, // Deep Navy Blue
+    { from: '#0369a1', to: '#075985', accent: '#38bdf8', glow: '#7dd3fc', badgeBg: '#0c4a6e' }, // Sapphire Ocean
+    { from: '#312e81', to: '#1e1b4b', accent: '#818cf8', glow: '#a5b4fc', badgeBg: '#1e1b4b' }, // Royal Indigo
+    { from: '#1e293b', to: '#0f172a', accent: '#60a5fa', glow: '#93c5fd', badgeBg: '#020617' }, // Corporate Steel
+    { from: '#1e40af', to: '#1e3a8a', accent: '#67e8f9', glow: '#a5f3fc', badgeBg: '#172554' }  // Cobalt Blue
   ];
   const charCodeSum = cleanName.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
   const color = colors[charCodeSum % colors.length];
@@ -425,11 +433,15 @@ export function getDefaultCompanyLogo(name: string): string {
         <stop offset="100%" stop-color="${color.to}" />
       </linearGradient>
     </defs>
+    <!-- Background Frame -->
     <rect width="128" height="128" rx="28" fill="url(#compGrad)" />
-    <path d="M42 90V46l22-14 22 14v44H42zm8-8h10V52H50v30zm18 0h10V52H68v30z" fill="#ffffff" opacity="0.25" />
-    <path d="M54 60h2v4h-2zm0 8h2v4h-2zm0 8h2v4h-2zm18-16h2v4h-2zm0 8h2v4h-2zm0 8h2v4h-2z" fill="#ffffff" opacity="0.6" />
-    <circle cx="64" cy="64" r="22" fill="#0f172a" fill-opacity="0.6" />
-    <text x="64" y="71" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="1">${initials}</text>
+    <!-- Corporate Skyscraper Vector -->
+    <path d="M38 90V44l26-14 26 14v46H38z" fill="#ffffff" fill-opacity="0.18" />
+    <path d="M46 52h8v7h-8zm0 11h8v7h-8zm0 11h8v7h-8zm28-22h8v7h-8zm0 11h8v7h-8zm0 11h8v7h-8z" fill="#ffffff" fill-opacity="0.8" />
+    <path d="M60 40h8v50h-8z" fill="#ffffff" fill-opacity="0.35" />
+    <!-- Company Name Badge -->
+    <rect x="24" y="88" width="80" height="28" rx="14" fill="${color.badgeBg}" stroke="${color.accent}" stroke-width="2" />
+    <text x="64" y="106" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="1.2">${initials}</text>
   </svg>`;
 
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
