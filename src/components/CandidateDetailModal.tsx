@@ -162,23 +162,31 @@ export default function CandidateDetailModal({
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('questions')}
-              className={`flex-1 min-w-[140px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
-                activeTab === 'questions'
-                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/50'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
-              }`}
-            >
-              <HelpCircle className="w-4 h-4 shrink-0" />
-              <span>Wawancara</span>
-              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                activeTab === 'questions' ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300'
-              }`}>
-                {evalRes.suggestedInterviewQuestions?.length || 0}
-              </span>
-            </button>
+            {/* Tab Wawancara (Khusus HR/Admin) */}
+            {!isApplicant && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('questions')}
+                className={`flex-1 min-w-[140px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+                  activeTab === 'questions'
+                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/50'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                }`}
+              >
+                <HelpCircle className="w-4 h-4 shrink-0" />
+                <span>Wawancara</span>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                  activeTab === 'questions' ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300'
+                }`}>
+                  {evalRes.suggestedInterviewQuestions?.length || 0}
+                </span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                  activeTab === 'questions' ? 'bg-white/20 text-white' : 'bg-emerald-500/20 text-emerald-300'
+                }`}>
+                  HR
+                </span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -576,8 +584,8 @@ export default function CandidateDetailModal({
             </div>
           )}
 
-          {/* TAB 3: CUSTOM INTERVIEW QUESTIONS */}
-          {activeTab === 'questions' && (
+          {/* TAB 3: CUSTOM INTERVIEW QUESTIONS (Khusus HR) */}
+          {activeTab === 'questions' && !isApplicant && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-white text-xs flex items-center gap-2">

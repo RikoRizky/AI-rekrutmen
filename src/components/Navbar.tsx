@@ -59,7 +59,7 @@ export default function Navbar() {
     logoutUser();
     setCurrentUserState(null);
     setMenuOpen(false);
-    router.push('/auth');
+    router.push('/');
   };
 
   const isSuperAdmin = currentUser?.role === 'super_admin';

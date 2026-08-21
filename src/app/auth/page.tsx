@@ -19,7 +19,9 @@ import {
   X,
   CheckCircle2,
   Globe,
-  Loader2
+  Loader2,
+  ArrowLeft,
+  Home
 } from 'lucide-react';
 
 function AuthContent() {
@@ -36,6 +38,7 @@ function AuthContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState('');
   const [headline, setHeadline] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -202,31 +205,36 @@ function AuthContent() {
   };
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md space-y-6">
+    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 relative overflow-hidden">
+      
+      {/* Ambient Backdrop Glow */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 left-1/2 -translate-x-1/2 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="w-full max-w-md space-y-6 relative z-10">
         
         {/* Header Brand */}
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-black text-lg mx-auto shadow-lg shadow-emerald-950/40">
+          <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-black text-xl mx-auto shadow-xl shadow-emerald-950/50 ring-4 ring-emerald-500/20">
             SR
           </div>
-          <h1 className="text-2xl font-black text-white">
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
             {mode === 'login' ? 'Masuk ke Akun Anda' : 'Daftar Akun Pelamar Baru'}
           </h1>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs sm:text-sm text-slate-400">
             Platform Rekrutmen Cerdas dengan Analisis Berkas & Skoring AI
           </p>
         </div>
 
         {/* Auth Card */}
-        <div className="p-6 sm:p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl space-y-5 text-xs">
+        <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/90 backdrop-blur-xl border border-slate-800 shadow-2xl space-y-5 text-xs">
           
           {/* Google Sign-In Button */}
           <button
             type="button"
             onClick={handleGoogleLogin}
             disabled={isLoadingGoogle}
-            className="w-full py-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 font-semibold flex items-center justify-center gap-3 transition-colors shadow-sm disabled:opacity-50"
+            className="w-full py-3 rounded-xl bg-slate-950 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 text-slate-200 font-semibold flex items-center justify-center gap-3 transition-all shadow-sm disabled:opacity-50 hover:scale-[1.01]"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">
               <path
@@ -249,16 +257,18 @@ function AuthContent() {
             <span>{isLoadingGoogle ? 'Menghubungkan Akun Google...' : 'Lanjutkan dengan Akun Google'}</span>
           </button>
 
-          <div className="relative flex items-center justify-center">
-            <div className="border-t border-slate-800 w-full" />
-            <span className="bg-slate-900 px-3 text-[11px] text-slate-500 uppercase tracking-wider font-semibold">
-              atau login dengan email & password
+          <div className="flex items-center gap-3 my-2">
+            <div className="flex-1 border-t border-slate-800" />
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+              ATAU LOGIN MANUAL
             </span>
+            <div className="flex-1 border-t border-slate-800" />
           </div>
 
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-medium">
-              {errorMsg}
+            <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
+              <span>{errorMsg}</span>
             </div>
           )}
 
@@ -266,116 +276,142 @@ function AuthContent() {
             
             {/* Nama Lengkap (Khusus Mode Register) */}
             {mode === 'register' && (
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="font-semibold text-slate-300">Nama Lengkap: *</label>
                 <div className="relative">
-                  <UserIcon className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <UserIcon className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     required
                     placeholder="Nama Lengkap Anda"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-xs sm:text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                   />
                 </div>
               </div>
             )}
 
             {/* Email Input */}
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="font-semibold text-slate-300">Alamat Email Akun: *</label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="email"
                   required
                   placeholder="nama@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-xs sm:text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                 />
               </div>
             </div>
 
             {/* Password Input */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <label className="font-semibold text-slate-300">Kata Sandi (Password): *</label>
-                {mode === 'login' && (
-                  <span className="text-[11px] text-slate-400 cursor-pointer hover:text-emerald-400">
-                    Lupa sandi?
-                  </span>
-                )}
-              </div>
+            <div className="space-y-1.5">
+              <label className="font-semibold text-slate-300">Kata Sandi (Password): *</label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-xs sm:text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
+            {/* Ingat Saya & Lupa Kata Sandi (Khusus Mode Login di atas tombol masuk) */}
+            {mode === 'login' && (
+              <div className="flex items-center justify-between pt-0.5 text-xs">
+                <label className="flex items-center gap-2 text-slate-300 hover:text-white cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 rounded border border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-500 cursor-pointer accent-emerald-500"
+                  />
+                  <span className="text-slate-300 font-medium">Ingat saya</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => alert('Fitur lupa kata sandi: Silakan gunakan opsi Lanjutkan dengan Akun Google atau hubungi administrator.')}
+                  className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors hover:underline"
+                >
+                  Lupa kata sandi?
+                </button>
+              </div>
+            )}
+
             {/* Extra Register Fields */}
             {mode === 'register' && (
               <>
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <label className="font-semibold text-slate-300">No. WhatsApp/HP (Opsional):</label>
                   <div className="relative">
-                    <Phone className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="tel"
                       placeholder="0812xxxxxxxx"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500"
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-xs sm:text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <label className="font-semibold text-slate-300">Headline Keahlian (Opsional):</label>
                   <input
                     type="text"
                     placeholder="Contoh: Frontend Developer (3 thn exp)"
                     value={headline}
                     onChange={(e) => setHeadline(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-xs sm:text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                   />
                 </div>
               </>
             )}
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all shadow-md shadow-emerald-950/40 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin text-white" />
-                  <span>Memproses...</span>
-                </>
-              ) : (
-                <span>{mode === 'login' ? 'Masuk ke Aplikasi' : 'Daftar Sebagai Pelamar'}</span>
-              )}
-            </button>
+            <div className="space-y-2.5 pt-1">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm transition-all shadow-lg shadow-emerald-950/60 disabled:opacity-50 flex items-center justify-center gap-2 hover:scale-[1.01]"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span>Memproses...</span>
+                  </>
+                ) : (
+                  <span>{mode === 'login' ? 'Masuk ke Aplikasi' : 'Daftar Sebagai Pelamar'}</span>
+                )}
+              </button>
+
+              {/* Tombol Kembali ke Beranda */}
+              <Link
+                href="/"
+                className="w-full py-3 rounded-xl bg-slate-950/70 hover:bg-slate-800/80 text-slate-400 hover:text-white text-xs font-semibold flex items-center justify-center gap-2 border border-slate-800/90 hover:border-slate-700 transition-all group"
+              >
+                <ArrowLeft className="w-4 h-4 text-emerald-400 group-hover:-translate-x-0.5 transition-transform" />
+                <span>Kembali ke Beranda</span>
+              </Link>
+            </div>
           </form>
 
           {/* Toggle Login / Register */}
-          <div className="text-center pt-1">
+          <div className="text-center pt-2">
             {mode === 'login' ? (
               <p className="text-slate-400">
                 Belum punya akun?{' '}
@@ -385,7 +421,7 @@ function AuthContent() {
                     setMode('register');
                     setErrorMsg(null);
                   }}
-                  className="text-emerald-400 font-semibold hover:underline"
+                  className="text-emerald-400 font-bold hover:underline"
                 >
                   Daftar Pelamar
                 </button>
@@ -399,7 +435,7 @@ function AuthContent() {
                     setMode('login');
                     setErrorMsg(null);
                   }}
-                  className="text-emerald-400 font-semibold hover:underline"
+                  className="text-emerald-400 font-bold hover:underline"
                 >
                   Masuk Saja
                 </button>
@@ -408,22 +444,22 @@ function AuthContent() {
           </div>
 
           {/* Quick Account Fill Reference */}
-          <div className="pt-3 border-t border-slate-800 space-y-2">
+          <div className="pt-4 border-t border-slate-800/90 space-y-2.5">
             <span className="text-[11px] text-slate-400 font-semibold block">
               Isi Cepat Akun Uji Coba:
             </span>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => fillQuickAccount('admin@smartrecruit.id')}
-                className="px-2.5 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-[11px] text-amber-300 font-medium border border-amber-500/30"
+                className="px-3 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-[11px] text-amber-300 font-semibold border border-amber-500/30 hover:border-amber-500/60 transition-colors shadow-sm"
               >
                 👑 Super Admin
               </button>
               <button
                 type="button"
                 onClick={() => fillQuickAccount('sarah.wijaya@astradigital.co.id')}
-                className="px-2.5 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-[11px] text-emerald-300 font-medium border border-emerald-500/30"
+                className="px-3 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-[11px] text-emerald-300 font-semibold border border-emerald-500/30 hover:border-emerald-500/60 transition-colors shadow-sm"
               >
                 🏢 PT Astra (HRD)
               </button>
@@ -433,17 +469,19 @@ function AuthContent() {
         </div>
 
         {/* Company Callout Box */}
-        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-xs flex items-center justify-between gap-3">
+        <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/80 backdrop-blur-md border border-slate-800 text-xs flex items-center justify-between gap-3 shadow-xl">
           <div className="flex items-center gap-3">
-            <Building2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+              <Building2 className="w-5 h-5" />
+            </div>
             <div>
-              <p className="font-semibold text-white">Ingin Membuka Loker Perusahaan?</p>
-              <p className="text-slate-400 text-[11px]">Bergabung dengan kami untuk buat akun PT.</p>
+              <p className="font-bold text-white text-xs sm:text-sm">Ingin Membuka Loker Perusahaan?</p>
+              <p className="text-slate-400 text-[11px]">Bergabung dengan paket langganan untuk buat akun PT.</p>
             </div>
           </div>
           <Link
             href="/pricing"
-            className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shrink-0 shadow-sm"
+            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shrink-0 shadow-lg shadow-emerald-950/40 transition-all hover:scale-[1.02]"
           >
             Paket PT
           </Link>
