@@ -357,7 +357,7 @@ export default function JobDetailPage() {
                   Dapat masuk langsung menggunakan Akun Google dalam 1 klik.
                 </p>
               </div>
-            ) : (!currentUser.profileCompleted && !(currentUser.biodata?.institutionName && currentUser.biodata?.educationMajor)) ? (
+            ) : (!currentUser.profileCompleted && !(currentUser.biodata?.institutionName && (currentUser.biodata?.lastEducation?.includes('SMA') || currentUser.biodata?.lastEducation?.includes('SMK') || currentUser.biodata?.educationMajor))) ? (
               /* 2. JIKA BIODATA BELUM LENGKAP: WAJIBKAN ISI BIODATA DULU */
               <div className="p-6 sm:p-7 rounded-3xl bg-slate-900 border border-amber-500/40 space-y-5 text-xs text-center shadow-2xl relative overflow-hidden">
                 <div className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto shadow-md">

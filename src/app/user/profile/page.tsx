@@ -201,14 +201,22 @@ function ProfileContent() {
     if (!currentUser) return;
     setErrorMsg(null);
 
+    const isHighSchool = lastEducation.includes('SMA') || lastEducation.includes('SMK') || lastEducation === 'Lainnya';
+
     if (!fullName.trim()) {
       setErrorMsg('Nama lengkap wajib diisi.');
       return;
     }
-    if (!institutionName.trim() || !educationMajor.trim()) {
-      setErrorMsg('Nama Universitas/Sekolah dan Jurusan wajib diisi.');
+    if (!institutionName.trim()) {
+      setErrorMsg(isHighSchool ? 'Nama Sekolah wajib diisi.' : 'Nama Universitas / Perguruan Tinggi wajib diisi.');
       return;
     }
+    if (!isHighSchool && !educationMajor.trim()) {
+      setErrorMsg('Jurusan / Program Studi wajib diisi untuk jenjang pendidikan tinggi.');
+      return;
+    }
+
+    const finalMajor = isHighSchool ? (educationMajor.trim() || 'Umum / IPA / IPS') : educationMajor.trim();
 
     setIsSaving(true);
 
@@ -230,7 +238,7 @@ function ProfileContent() {
         address: address.trim(),
         city: city.trim(),
         lastEducation,
-        educationMajor: educationMajor.trim(),
+        educationMajor: finalMajor,
         institutionName: institutionName.trim(),
         graduationYear: graduationYear.trim(),
         gpa: gpa.trim(),
@@ -555,7 +563,11 @@ function ProfileContent() {
             </div>
             <div>
               <h2 className="text-sm font-bold text-white">Riwayat Pendidikan Terakhir</h2>
-              <p className="text-[11px] text-slate-400">Latar belakang akademik dan institusi pendidikan resmi Anda.</p>
+              <p className="text-[11px] text-slate-400">
+                {lastEducation.includes('SMA') || lastEducation.includes('SMK')
+                  ? 'Informasi asal sekolah SMA / SMK / sederajat Anda.'
+                  : 'Latar belakang akademik dan institusi perguruan tinggi resmi Anda.'}
+              </p>
             </div>
           </div>
 
@@ -578,11 +590,19 @@ function ProfileContent() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="font-semibold text-slate-300">Nama Universitas / Sekolah: *</label>
+              <label className="font-semibold text-slate-300">
+                {lastEducation.includes('SMA') || lastEducation.includes('SMK')
+                  ? 'Nama Sekolah (SMA / SMK / MA): *'
+                  : 'Nama Universitas / Perguruan Tinggi: *'}
+              </label>
               <input
                 type="text"
                 required
-                placeholder="Contoh: Institut Teknologi Bandung (ITB)"
+                placeholder={
+                  lastEducation.includes('SMA') || lastEducation.includes('SMK')
+                    ? 'Contoh: SMAN 1 Bandung atau SMKN 2 Jakarta'
+                    : 'Contoh: Institut Teknologi Bandung (ITB)'
+                }
                 value={institutionName}
                 onChange={(e) => setInstitutionName(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500"
@@ -590,11 +610,19 @@ function ProfileContent() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="font-semibold text-slate-300">Jurusan / Program Studi: *</label>
+              <label className="font-semibold text-slate-300">
+                {lastEducation.includes('SMA') || lastEducation.includes('SMK')
+                  ? 'Jurusan / Peminatan (Opsional):'
+                  : 'Jurusan / Program Studi: *'}
+              </label>
               <input
                 type="text"
-                required
-                placeholder="Contoh: Teknik Informatika"
+                required={!lastEducation.includes('SMA') && !lastEducation.includes('SMK') && lastEducation !== 'Lainnya'}
+                placeholder={
+                  lastEducation.includes('SMA') || lastEducation.includes('SMK')
+                    ? 'Contoh: IPA / IPS / Rekayasa Perangkat Lunak (Opsional)'
+                    : 'Contoh: Teknik Informatika'
+                }
                 value={educationMajor}
                 onChange={(e) => setEducationMajor(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500"
@@ -605,7 +633,7 @@ function ProfileContent() {
               <label className="font-semibold text-slate-300">Tahun Kelulusan:</label>
               <input
                 type="text"
-                placeholder="Contoh: 2022"
+                placeholder="Contoh: 2024"
                 value={graduationYear}
                 onChange={(e) => setGraduationYear(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500"
@@ -613,10 +641,18 @@ function ProfileContent() {
             </div>
 
             <div className="space-y-1.5 sm:col-span-2">
-              <label className="font-semibold text-slate-300">Nilai Akhir / IPK (Opsional):</label>
+              <label className="font-semibold text-slate-300">
+                {lastEducation.includes('SMA') || lastEducation.includes('SMK')
+                  ? 'Nilai Rata-rata Ujian / Nilai Rapor (Opsional):'
+                  : 'Indeks Prestasi Kumulatif (IPK, Skala 4.0 - Opsional):'}
+              </label>
               <input
                 type="text"
-                placeholder="Contoh: 3.82"
+                placeholder={
+                  lastEducation.includes('SMA') || lastEducation.includes('SMK')
+                    ? 'Contoh: 88.5 atau 90'
+                    : 'Contoh: 3.82'
+                }
                 value={gpa}
                 onChange={(e) => setGpa(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500"
