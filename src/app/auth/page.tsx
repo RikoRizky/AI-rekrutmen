@@ -10,7 +10,6 @@ import {
   Lock,
   Mail,
   User as UserIcon,
-  Phone,
   Eye,
   EyeOff,
   Sparkles,
@@ -36,8 +35,6 @@ function AuthContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [phone, setPhone] = useState('');
-  const [headline, setHeadline] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -178,8 +175,8 @@ function AuthContent() {
           email.trim(),
           password.trim(),
           role,
-          phone.trim(),
-          headline.trim() || 'Pencari Kerja / Talenta'
+          '',
+          'Pencari Kerja / Talenta'
         );
 
         if (!res.success) {
@@ -353,35 +350,7 @@ function AuthContent() {
               </div>
             )}
 
-            {/* Extra Register Fields */}
-            {mode === 'register' && (
-              <>
-                <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-300">No. WhatsApp/HP (Opsional):</label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="tel"
-                      placeholder="0812xxxxxxxx"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-xs sm:text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-300">Headline Keahlian (Opsional):</label>
-                  <input
-                    type="text"
-                    placeholder="Contoh: Frontend Developer (3 thn exp)"
-                    value={headline}
-                    onChange={(e) => setHeadline(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-xs sm:text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-                  />
-                </div>
-              </>
-            )}
+            {/* Extra Register Fields - Removed as requested, filled in profile/biodata */}
 
             <div className="space-y-2.5 pt-1">
               <button
