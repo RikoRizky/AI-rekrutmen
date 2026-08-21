@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { findInvitationToken, consumeInvitationToken, registerNewCompany, initializeStorage, getDefaultCompanyLogo } from '@/lib/storage';
+import { findInvitationToken, consumeInvitationToken, addInvitationToken, registerNewCompany, initializeStorage, getDefaultCompanyLogo } from '@/lib/storage';
 import { isTokenValid } from '@/lib/token';
 import Link from 'next/link';
 import {
@@ -50,37 +50,47 @@ function CompanyRegisterContent() {
       return;
     }
 
-    // Check token in storage / simulation
+    // Check token in storage / database
     const foundToken = findInvitationToken(tokenStr);
-    if (!foundToken) {
-      // If token not yet saved in localStorage (e.g. direct url with cptk_), allow valid format for demo
-      if (tokenStr.startsWith('cptk_')) {
-        setTokenData({
-          token: tokenStr,
-          email: emailParam || 'admin@perusahaan.com',
-          packageType: 'Professional HR ATS',
-          isUsed: false,
-          expiresAt: new Date(Date.now() + 86400000).toISOString()
-        });
-        if (emailParam) setAdminEmail(emailParam);
+    if (foundToken) {
+      if (foundToken.isUsed) {
+        setTokenError('Link aktivasi pendaftaran ini sudah pernah digunakan untuk mendaftar akun perusahaan dan sekarang sudah hangus.');
         setIsValidating(false);
         return;
       }
 
-      setTokenError('Token tidak valid atau tidak terdaftar di sistem.');
+      const validity = isTokenValid(foundToken);
+      if (!validity.valid) {
+        setTokenError(validity.reason || 'Link pendaftaran tidak valid atau telah kedaluwarsa.');
+        setIsValidating(false);
+        return;
+      }
+
+      setTokenData(foundToken);
+      if (foundToken.email) setAdminEmail(foundToken.email);
       setIsValidating(false);
       return;
     }
 
-    const validity = isTokenValid(foundToken);
-    if (!validity.valid) {
-      setTokenError(validity.reason || 'Token tidak valid.');
+    // Fallback jika token format cptk_ baru pertama kali diakses
+    if (tokenStr.startsWith('cptk_')) {
+      const newToken = {
+        id: `token-${Date.now()}`,
+        token: tokenStr,
+        email: emailParam || 'admin@perusahaan.com',
+        packageType: 'Professional HR ATS',
+        isUsed: false,
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
+        createdAt: new Date().toISOString()
+      };
+      addInvitationToken(newToken);
+      setTokenData(newToken);
+      if (emailParam) setAdminEmail(emailParam);
       setIsValidating(false);
       return;
     }
 
-    setTokenData(foundToken);
-    if (foundToken.email) setAdminEmail(foundToken.email);
+    setTokenError('Token tidak valid atau tidak terdaftar di sistem.');
     setIsValidating(false);
   }, [tokenStr, emailParam]);
 
