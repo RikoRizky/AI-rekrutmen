@@ -187,6 +187,82 @@ export function getCompanyById(id: string): Company | null {
   return companies.find((c) => c.id === id) || null;
 }
 
+export function getDefaultCompanyLogo(name: string): string {
+  const cleanName = (name || 'PT').trim();
+  const initials = cleanName
+    .split(' ')
+    .filter(Boolean)
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() || 'PT';
+
+  const colors = [
+    { from: '#059669', to: '#0f766e' },
+    { from: '#2563eb', to: '#1d4ed8' },
+    { from: '#7c3aed', to: '#6d28d9' },
+    { from: '#0891b2', to: '#0e7490' },
+    { from: '#d97706', to: '#b45309' }
+  ];
+  const charCodeSum = cleanName.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const color = colors[charCodeSum % colors.length];
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+    <defs>
+      <linearGradient id="compGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="${color.from}" />
+        <stop offset="100%" stop-color="${color.to}" />
+      </linearGradient>
+    </defs>
+    <rect width="128" height="128" rx="28" fill="url(#compGrad)" />
+    <path d="M42 90V46l22-14 22 14v44H42zm8-8h10V52H50v30zm18 0h10V52H68v30z" fill="#ffffff" opacity="0.25" />
+    <path d="M54 60h2v4h-2zm0 8h2v4h-2zm0 8h2v4h-2zm18-16h2v4h-2zm0 8h2v4h-2zm0 8h2v4h-2z" fill="#ffffff" opacity="0.6" />
+    <circle cx="64" cy="64" r="22" fill="#0f172a" fill-opacity="0.6" />
+    <text x="64" y="71" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="1">${initials}</text>
+  </svg>`;
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+export function updateCompany(id: string, updateData: Partial<Company>): Company | null {
+  const companies = getAllCompanies();
+  const index = companies.findIndex((c) => c.id === id);
+  if (index === -1) return null;
+
+  const updated: Company = {
+    ...companies[index],
+    ...updateData
+  };
+  companies[index] = updated;
+  localStorage.setItem(COMPANIES_KEY, JSON.stringify(companies));
+
+  // Sync with jobs
+  const jobs = getAllJobs();
+  let jobsModified = false;
+  jobs.forEach((j) => {
+    if (j.companyId === id) {
+      if (updateData.name) j.companyName = updateData.name;
+      if (updateData.logo) j.companyLogo = updateData.logo;
+      if (updateData.address) j.location = updateData.address;
+      jobsModified = true;
+    }
+  });
+  if (jobsModified) {
+    localStorage.setItem(JOBS_KEY, JSON.stringify(jobs));
+  }
+
+  // Sync with current user
+  const currentUser = getCurrentUser();
+  if (currentUser && (currentUser.companyId === id || currentUser.companyName === companies[index].name)) {
+    if (updateData.name) currentUser.companyName = updateData.name;
+    if (updateData.logo) currentUser.avatar = updateData.logo;
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(currentUser));
+  }
+
+  triggerDataRefresh();
+  return updated;
+}
+
 export function registerNewCompany(
   companyData: Omit<Company, 'id' | 'createdAt' | 'isVerified'>,
   adminUser: { name: string; email: string; phone?: string; password?: string }
@@ -197,6 +273,7 @@ export function registerNewCompany(
   const newCompany: Company = {
     ...companyData,
     id: newCompanyId,
+    logo: companyData.logo || getDefaultCompanyLogo(companyData.name),
     isVerified: true,
     createdAt: new Date().toISOString()
   };
@@ -213,6 +290,11 @@ export function registerNewCompany(
     newCompany.id,
     newCompany.name
   );
+
+  if (newCompany.logo) {
+    user.avatar = newCompany.logo;
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+  }
 
   triggerDataRefresh();
   return { company: newCompany, user };

@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const orderId = `SUB-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const orderId = `SMARTRECRUIT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
     const snapResult = await createMidtransSnapTransaction({
       orderId,

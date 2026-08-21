@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { User, Application } from '@/lib/types';
-import { getCurrentUser, logoutUser, getAllApplications, REFRESH_EVENT, initializeStorage } from '@/lib/storage';
+import { getCurrentUser, logoutUser, getAllApplications, getAllCompanies, getDefaultCompanyLogo, REFRESH_EVENT, initializeStorage } from '@/lib/storage';
 import {
   Briefcase,
   PlusCircle,
@@ -16,7 +16,8 @@ import {
   ChevronDown,
   Search,
   CreditCard,
-  UserCheck
+  UserCheck,
+  Settings2
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -37,6 +38,22 @@ export default function Navbar() {
     window.addEventListener(REFRESH_EVENT, load);
     return () => window.removeEventListener(REFRESH_EVENT, load);
   }, []);
+
+  const getUserAvatar = () => {
+    if (!currentUser) return '';
+    if (currentUser.role === 'company_admin' && currentUser.companyId) {
+      const companies = getAllCompanies();
+      const comp = companies.find((c) => c.id === currentUser.companyId);
+      if (comp && comp.logo && !comp.logo.includes('photo-1599305445671-ac291c95aaa9')) {
+        return comp.logo;
+      }
+      return getDefaultCompanyLogo(currentUser.companyName || currentUser.name);
+    }
+    if (currentUser.avatar && !currentUser.avatar.includes('avataaars')) {
+      return currentUser.avatar;
+    }
+    return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(currentUser.name)}&backgroundColor=059669,047857,0f172a&textColor=ffffff`;
+  };
 
   const handleLogout = () => {
     logoutUser();
@@ -218,11 +235,7 @@ export default function Navbar() {
                   className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-slate-800 text-left transition-colors border border-slate-800"
                 >
                   <img
-                    src={
-                      currentUser.avatar && !currentUser.avatar.includes('avataaars')
-                        ? currentUser.avatar
-                        : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(currentUser.name)}&backgroundColor=059669,047857,0f172a&textColor=ffffff`
-                    }
+                    src={getUserAvatar()}
                     alt={currentUser.name}
                     className="w-8 h-8 rounded-lg object-cover ring-1 ring-emerald-500/40 bg-slate-800"
                   />
@@ -265,6 +278,14 @@ export default function Navbar() {
                         >
                           <Building2 className="w-4 h-4" />
                           <span>Dashboard Perusahaan</span>
+                        </Link>
+                        <Link
+                          href="/company"
+                          onClick={() => setMenuOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2 text-slate-300 hover:bg-slate-800"
+                        >
+                          <Settings2 className="w-4 h-4 text-emerald-400" />
+                          <span>Edit Profil & Logo PT</span>
                         </Link>
                         <Link
                           href="/company/jobs/new"

@@ -5,7 +5,7 @@ export const SEED_COMPANIES: Company[] = [
     id: 'comp-1',
     name: 'PT Astra Digital Nusantara',
     slug: 'astra-digital-nusantara',
-    logo: 'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=120&auto=format&fit=crop&q=60',
+    logo: 'https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=120&auto=format&fit=crop&q=80',
     description: 'Divisi inovasi digital terdepan dari grup konglomerasi otomotif dan teknologi terbesar di Indonesia.',
     industry: 'Teknologi & Otomotif',
     website: 'https://astradigital.co.id',
@@ -20,7 +20,7 @@ export const SEED_COMPANIES: Company[] = [
     id: 'comp-2',
     name: 'PT Mandiri Fintech Solusindo',
     slug: 'mandiri-fintech-solusindo',
-    logo: 'https://images.unsplash.com/photo-1551836022-deb4988cc6c0?w=120&auto=format&fit=crop&q=60',
+    logo: 'https://images.unsplash.com/photo-1554469384-e58fac16e23a?w=120&auto=format&fit=crop&q=80',
     description: 'Perusahaan teknologi finansial penyedia infrastruktur pembayaran digital dan perbankan modern.',
     industry: 'Perbankan & Fintech',
     website: 'https://mandirifintech.id',
@@ -35,7 +35,7 @@ export const SEED_COMPANIES: Company[] = [
     id: 'comp-3',
     name: 'PT Telkom Digital Inovasi',
     slug: 'telkom-digital-inovasi',
-    logo: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=120&auto=format&fit=crop&q=60',
+    logo: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=120&auto=format&fit=crop&q=80',
     description: 'Pusat pengembangan produk kecerdasan buatan, cloud computing, dan infrastruktur data nasional.',
     industry: 'Telekomunikasi & AI',
     website: 'https://telkomdigital.co.id',
@@ -551,7 +551,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   aiModel: 'gemini-2.5-flash',
   autoScreening: true,
   minPassingScore: 70,
-  midtransServerKey: process.env.MIDTRANS_SERVER_KEY || 'SB-Mid-server-demo',
-  midtransClientKey: process.env.MIDTRANS_CLIENT_KEY || 'SB-Mid-client-demo',
-  resendApiKey: process.env.RESEND_API_KEY || 're_demo'
+  midtransServerKey: process.env.MIDTRANS_SERVER_KEY || '',
+  midtransClientKey: process.env.MIDTRANS_CLIENT_KEY || '',
+  resendApiKey: process.env.RESEND_API_KEY || ''
 };

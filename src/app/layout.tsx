@@ -21,6 +21,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="id" className={`${jakarta.variable} h-full antialiased dark`}>
+      <head>
+        <script
+          type="text/javascript"
+          src="https://app.sandbox.midtrans.com/snap/snap.js"
+          data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || ''}
+        ></script>
+      </head>
       <body className="min-h-full flex flex-col bg-slate-950 text-slate-100 font-sans">
         <Navbar />
         <main className="flex-1">

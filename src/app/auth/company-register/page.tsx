@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { findInvitationToken, consumeInvitationToken, registerNewCompany, initializeStorage } from '@/lib/storage';
+import { findInvitationToken, consumeInvitationToken, registerNewCompany, initializeStorage, getDefaultCompanyLogo } from '@/lib/storage';
 import { isTokenValid } from '@/lib/token';
 import Link from 'next/link';
 import {
@@ -110,7 +110,7 @@ function CompanyRegisterContent() {
           activeSubscription: tokenData?.packageType || 'Professional',
           subscriptionExpiresAt: new Date(Date.now() + 30 * 86400000).toISOString(),
           jobQuota: 20,
-          logo: `https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=120&auto=format&fit=crop&q=60`
+          logo: getDefaultCompanyLogo(companyName)
         },
         {
           name: adminName,

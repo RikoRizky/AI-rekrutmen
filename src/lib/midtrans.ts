@@ -24,7 +24,7 @@ export async function createMidtransSnapTransaction({
   customerDetails,
   itemDetails
 }: CreateSnapTransactionParams): Promise<{ token: string; redirect_url: string }> {
-  const serverKey = process.env.MIDTRANS_SERVER_KEY || 'SB-Mid-server-demo-key';
+  const serverKey = (process.env.MIDTRANS_SERVER_KEY || '').trim();
   const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
 
   const baseUrl = isProduction
@@ -45,7 +45,7 @@ export async function createMidtransSnapTransaction({
     },
     item_details: itemDetails,
     callbacks: {
-      finish: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/pricing?status=success&order_id=${orderId}`
+      finish: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/pricing/success?order_id=${orderId}`
     }
   };
 

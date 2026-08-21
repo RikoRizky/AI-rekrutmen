@@ -5,7 +5,6 @@
 :root {
   --background: #090d16;
   --foreground: #f8fafc;
-  color-scheme: dark;
 }
 
 body {
@@ -33,4 +32,18 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #059669;
+}
+
+/* Midtrans Snap Iframe Transparency (Menampilkan Website di Belakang Pop-up) */
+iframe#snap-midtrans,
+.snap-midtrans-iframe,
+#snap-container,
+#snap-container iframe,
+iframe[id^="snap-midtrans"],
+iframe[name^="popup_"],
+iframe[src*="midtrans.com"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  color-scheme: normal !important;
+  border: none !important;
 }

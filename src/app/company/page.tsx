@@ -7,6 +7,8 @@ import {
   getJobsByCompanyId,
   getApplicationsByCompanyId,
   getAllCompanies,
+  updateCompany,
+  getDefaultCompanyLogo,
   initializeStorage,
   REFRESH_EVENT
 } from '@/lib/storage';
@@ -32,7 +34,12 @@ import {
   MapPin,
   Calendar,
   ChevronRight,
-  GraduationCap
+  GraduationCap,
+  Settings2,
+  Upload,
+  X,
+  Check,
+  Globe
 } from 'lucide-react';
 
 export default function CompanyPortalPage() {
@@ -52,6 +59,24 @@ export default function CompanyPortalPage() {
   // Active Candidate Modal
   const [selectedCandidate, setSelectedCandidate] = useState<Application | null>(null);
 
+  // Edit Company Profile Modal State
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editIndustry, setEditIndustry] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editWebsite, setEditWebsite] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editLogo, setEditLogo] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState(false);
+
+  const sanitizeLogo = (comp: Company): string => {
+    if (!comp.logo || comp.logo.includes('photo-1599305445671-ac291c95aaa9')) {
+      return getDefaultCompanyLogo(comp.name);
+    }
+    return comp.logo;
+  };
+
   const loadData = () => {
     const user = getCurrentUser();
     setCurrentUserState(user);
@@ -59,6 +84,14 @@ export default function CompanyPortalPage() {
     if (user && user.companyId) {
       const companies = getAllCompanies();
       const comp = companies.find((c) => c.id === user.companyId) || companies[0];
+      
+      // Auto-migrate if old logo exists
+      const cleanLogo = sanitizeLogo(comp);
+      if (comp.logo !== cleanLogo) {
+        updateCompany(comp.id, { logo: cleanLogo });
+        comp.logo = cleanLogo;
+      }
+
       setCompany(comp);
 
       const compJobs = getJobsByCompanyId(comp.id);
@@ -70,9 +103,80 @@ export default function CompanyPortalPage() {
       // Fallback to first company in storage
       const companies = getAllCompanies();
       const comp = companies[0];
+      const cleanLogo = sanitizeLogo(comp);
+      if (comp.logo !== cleanLogo) {
+        updateCompany(comp.id, { logo: cleanLogo });
+        comp.logo = cleanLogo;
+      }
       setCompany(comp);
       setJobs(getJobsByCompanyId(comp.id));
       setApplications(getApplicationsByCompanyId(comp.id));
+    }
+  };
+
+  const handleOpenEditModal = () => {
+    if (!company) return;
+    setEditName(company.name);
+    setEditIndustry(company.industry || '');
+    setEditAddress(company.address || '');
+    setEditWebsite(company.website || '');
+    setEditDescription(company.description || '');
+    setEditLogo(sanitizeLogo(company));
+    setSaveSuccessMsg(false);
+    setIsEditProfileOpen(true);
+  };
+
+  const handleLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Ukuran file maksimal 2MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        setEditLogo(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleGenerateDefaultLogo = () => {
+    setEditLogo(getDefaultCompanyLogo(editName || company?.name || 'PT'));
+  };
+
+  const handleSaveCompanyProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!company) return;
+    if (!editName.trim()) {
+      alert('Nama perusahaan wajib diisi.');
+      return;
+    }
+
+    setIsSavingProfile(true);
+    const updated = updateCompany(company.id, {
+      name: editName.trim(),
+      industry: editIndustry.trim(),
+      address: editAddress.trim(),
+      website: editWebsite.trim(),
+      description: editDescription.trim(),
+      logo: editLogo || getDefaultCompanyLogo(editName)
+    });
+
+    if (updated) {
+      setCompany(updated);
+      setSaveSuccessMsg(true);
+      setTimeout(() => {
+        setIsSavingProfile(false);
+        setIsEditProfileOpen(false);
+        loadData();
+      }, 600);
+    } else {
+      setIsSavingProfile(false);
+      alert('Gagal menyimpan profil perusahaan.');
     }
   };
 
@@ -148,13 +252,24 @@ export default function CompanyPortalPage() {
             </div>
           </div>
 
-          <Link
-            href="/company/jobs/new"
-            className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-950/40 transition-all hover:scale-[1.02] shrink-0"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>Buka Lowongan Baru</span>
-          </Link>
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={handleOpenEditModal}
+              className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs shadow-md transition-all hover:scale-[1.02]"
+            >
+              <Settings2 className="w-4 h-4 text-emerald-400" />
+              <span>Edit Profil PT</span>
+            </button>
+
+            <Link
+              href="/company/jobs/new"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-950/40 transition-all hover:scale-[1.02]"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>Buka Lowongan Baru</span>
+            </Link>
+          </div>
         </div>
       )}
 
@@ -522,6 +637,169 @@ export default function CompanyPortalPage() {
             </div>
           )}
 
+        </div>
+      )}
+
+      {/* Edit Profil Perusahaan Modal */}
+      {isEditProfileOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+          <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl my-8 relative">
+            
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg sm:text-xl font-bold text-white">Edit Profil Perusahaan</h2>
+                  <p className="text-xs text-slate-400">Perbarui identitas, logo, alamat, dan informasi resmi PT Anda</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditProfileOpen(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCompanyProfile} className="space-y-5 text-xs">
+              
+              {/* Logo Editor Section */}
+              <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-4">
+                <label className="font-bold text-slate-300 block">Logo & Foto Profil Perusahaan</label>
+                <div className="flex flex-col sm:flex-row items-center gap-5">
+                  <div className="relative group">
+                    <img
+                      src={editLogo || (company ? sanitizeLogo(company) : '') || getDefaultCompanyLogo(editName || 'PT')}
+                      alt="Preview Logo"
+                      className="w-20 h-20 rounded-2xl object-cover ring-2 ring-emerald-500/40 bg-slate-900 shrink-0 shadow-lg"
+                    />
+                  </div>
+
+                  <div className="space-y-2 flex-1 text-center sm:text-left">
+                    <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+                      <label className="cursor-pointer px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs inline-flex items-center gap-2 shadow-md transition-colors">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload Foto Logo</span>
+                        <input
+                          type="file"
+                          accept="image/png, image/jpeg, image/webp, image/svg+xml"
+                          onChange={handleLogoFileUpload}
+                          className="hidden"
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={handleGenerateDefaultLogo}
+                        className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-slate-700 transition-colors flex items-center gap-1.5"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Pakai Logo Generik (Bebas Hak Cipta)</span>
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Format didukung: PNG, JPG, WebP, SVG (Maks. 2MB). Foto otomatis bebas hak cipta.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Form Fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-slate-300">Nama Perusahaan / PT *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="Contoh: PT Inovasi Maju Bersama"
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-400 text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-slate-300">Kategori Industri / Sektor *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editIndustry}
+                    onChange={(e) => setEditIndustry(e.target.value)}
+                    placeholder="Contoh: Logistik & Supply Chain, IT..."
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-400 text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-slate-300">Lokasi / Alamat Kantor *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editAddress}
+                    onChange={(e) => setEditAddress(e.target.value)}
+                    placeholder="Contoh: Bandung, Jawa Barat"
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-400 text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-slate-300">Website Perusahaan</label>
+                  <input
+                    type="url"
+                    value={editWebsite}
+                    onChange={(e) => setEditWebsite(e.target.value)}
+                    placeholder="https://perusahaan.co.id"
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-400 text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-semibold text-slate-300">Deskripsi / Profil Singkat Perusahaan</label>
+                <textarea
+                  rows={3}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Jelaskan mengenai bidang usaha, kultur kerja, atau visi misi perusahaan..."
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-400 text-xs focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              {saveSuccessMsg && (
+                <div className="p-3.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>Profil perusahaan berhasil diperbarui!</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsEditProfileOpen(false)}
+                  className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingProfile}
+                  className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-950/40 transition-all hover:scale-[1.02] disabled:opacity-50"
+                >
+                  {isSavingProfile ? (
+                    <span>Menyimpan...</span>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Simpan Perubahan</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
