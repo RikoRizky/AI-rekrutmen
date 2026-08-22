@@ -157,12 +157,7 @@ export default function CandidateDetailModal({
                 }`}
               >
                 <ShieldCheck className="w-4 h-4 shrink-0" />
-                <span>Jejak Sosmed AI</span>
-                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
-                  activeTab === 'background-social' ? 'bg-white/20 text-white' : 'bg-emerald-500/20 text-emerald-300'
-                }`}>
-                  HR
-                </span>
+                <span>Jejak Sosmed</span>
               </button>
             )}
 
@@ -183,11 +178,6 @@ export default function CandidateDetailModal({
                   activeTab === 'questions' ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300'
                 }`}>
                   {evalRes.suggestedInterviewQuestions?.length || 0}
-                </span>
-                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
-                  activeTab === 'questions' ? 'bg-white/20 text-white' : 'bg-emerald-500/20 text-emerald-300'
-                }`}>
-                  HR
                 </span>
               </button>
             )}
