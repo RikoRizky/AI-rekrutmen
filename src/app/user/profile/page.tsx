@@ -2,9 +2,15 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { User, UserBiodata, SocialMediaItem } from '@/lib/types';
-import { getCurrentUser, updateUserBiodata, initializeStorage, getDefaultUserAvatar } from '@/lib/storage';
+import { User, UserBiodata, SocialMediaItem, DocumentAttachment } from '@/lib/types';
+import {
+  getCurrentUser,
+  updateUserBiodata,
+  initializeStorage,
+  getDefaultUserAvatar
+} from '@/lib/storage';
 import { analyzeCandidateBackgroundWithAi } from '@/lib/ai-background-evaluator';
+import DocumentUploader from '@/components/DocumentUploader';
 import Link from 'next/link';
 import {
   User as UserIcon,
@@ -27,7 +33,8 @@ import {
   Camera,
   Upload,
   Image as ImageIcon,
-  Phone
+  Phone,
+  FileText
 } from 'lucide-react';
 
 const PRESET_PLATFORMS = [
@@ -89,6 +96,9 @@ function ProfileContent() {
   ]);
   const [additionalBio, setAdditionalBio] = useState('');
 
+  // Documents State (CV, Surat Lamaran, Sertifikat)
+  const [documents, setDocuments] = useState<DocumentAttachment[]>([]);
+
   // Processing state
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -103,7 +113,7 @@ function ProfileContent() {
     }
     setCurrentUser(user);
 
-    // Initial avatar logic: Use clean, self-contained SVG candidate avatar
+    // Initial avatar logic
     const defaultNeutral = getDefaultUserAvatar(user.name || 'User');
     if (user.avatar && !user.avatar.includes('avataaars') && !user.avatar.includes('api.dicebear.com')) {
       setAvatarUrl(user.avatar);
@@ -125,6 +135,9 @@ function ProfileContent() {
     setGraduationYear(user.biodata?.graduationYear || '');
     setGpa(user.biodata?.gpa || '');
     setAdditionalBio(user.biodata?.socials?.additionalBio || '');
+
+    const initialDocs = user.biodata?.documents || [];
+    setDocuments(initialDocs);
 
     // Reconstruct socialItems from saved profile
     if (user.biodata?.socials) {
@@ -199,6 +212,10 @@ function ProfileContent() {
     setSocialItems(updated);
   };
 
+  const handleDocumentsChange = (updatedDocs: DocumentAttachment[]) => {
+    setDocuments(updatedDocs);
+  };
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
@@ -257,6 +274,7 @@ function ProfileContent() {
           customLinks: activeSocials,
           additionalBio: additionalBio.trim()
         },
+        documents,
         profileCompleted: true,
         updatedAt: new Date().toISOString()
       };
@@ -695,7 +713,7 @@ function ProfileContent() {
                 3
               </div>
               <div>
-                <h2 className="text-sm font-bold text-white">Tautan Media Sosial & Portofolio (Opsional)</h2>
+                <h2 className="text-sm font-bold text-white">Tautan Media Sosial & Portofolio</h2>
                 <p className="text-[11px] text-slate-400">
                   Cantumkan akun media sosial seperti LinkedIn, GitHub, Instagram, TikTok, Facebook, YouTube, atau Portofolio Anda.
                 </p>
@@ -799,6 +817,69 @@ function ProfileContent() {
 
         </div>
 
+        {/* ========================================================================= */}
+        {/* SECTION 4: UNGGAH BERKAS KARIR (CV, SURAT LAMARAN, & SERTIFIKAT) */}
+        {/* ========================================================================= */}
+        <div className="p-6 sm:p-8 rounded-3xl bg-slate-900 border border-slate-800 space-y-6 shadow-xl relative overflow-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-xs shrink-0">
+                4
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                  <span>Berkas Karir & Dokumen Pelamar</span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold border border-emerald-500/30">
+                    AI ATS Parser
+                  </span>
+                </h2>
+                <p className="text-[11px] text-slate-400">
+                  Unggah CV, Surat Lamaran, dan Sertifikat Anda. Berkas ini digunakan oleh sistem AI untuk menghitung skor kecocokan Anda dengan lowongan kerja mitra.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              href="/user/recommendations"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-950/40 shrink-0 self-start sm:self-auto hover:scale-105"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Lihat Rekomendasi Loker &rarr;</span>
+            </Link>
+          </div>
+
+          {/* Document Uploader Component */}
+          <DocumentUploader
+            documents={documents}
+            onDocumentsChange={(updatedDocs) => setDocuments(updatedDocs)}
+          />
+
+          {/* Banner link to Dedicated AI Recommendations Page */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-slate-950 to-teal-950/40 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs sm:text-sm font-bold text-white">
+                  Ingin Melihat Daftar Perusahaan yang Cocok dengan CV Anda?
+                </h4>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Buka halaman khusus Rekomendasi AI untuk melihat persentase kecocokan dan langsung mengirimkan lamaran dalam 1 klik.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              href="/user/recommendations"
+              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-950/40 transition-all flex items-center gap-1.5 shrink-0 hover:scale-105"
+            >
+              <span>Buka Rekomendasi AI</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+
         {/* Processing Indicator */}
         {isSaving && (
           <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-slate-300 space-y-2 text-xs flex items-center gap-3 shadow-lg">
@@ -821,7 +902,7 @@ function ProfileContent() {
               href="/jobs"
               className="text-slate-400 hover:text-white text-xs font-semibold"
             >
-              Lewati Sementara &rarr;
+              Lihat Semua Loker &rarr;
             </Link>
           )}
 
@@ -835,7 +916,7 @@ function ProfileContent() {
             ) : (
               <>
                 <Save className="w-4 h-4" />
-                <span>Simpan Biodata & Profil</span>
+                <span>Simpan Biodata & Berkas</span>
               </>
             )}
           </button>

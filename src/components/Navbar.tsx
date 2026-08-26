@@ -17,7 +17,8 @@ import {
   Search,
   CreditCard,
   UserCheck,
-  Settings2
+  Settings2,
+  Sparkles
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -143,6 +144,18 @@ export default function Navbar() {
                   >
                     <Search className="w-3.5 h-3.5" />
                     <span>Cari Loker</span>
+                  </Link>
+
+                  <Link
+                    href="/user/recommendations"
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                      pathname.startsWith('/user/recommendations')
+                        ? 'bg-slate-800 text-emerald-400 font-semibold'
+                        : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Rekomendasi Loker</span>
                   </Link>
 
                   <Link
@@ -307,6 +320,14 @@ export default function Navbar() {
 
                     {isApplicant && (
                       <>
+                        <Link
+                          href="/user/recommendations"
+                          onClick={() => setMenuOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2 text-emerald-400 hover:bg-slate-800 font-semibold"
+                        >
+                          <Sparkles className="w-4 h-4" />
+                          <span>Rekomendasi Loker (AI Match)</span>
+                        </Link>
                         <Link
                           href="/user/profile"
                           onClick={() => setMenuOpen(false)}
