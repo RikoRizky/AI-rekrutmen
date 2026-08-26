@@ -48,6 +48,7 @@ export default function NewJobPage() {
   const [keySkillsInput, setKeySkillsInput] = useState('TypeScript, Next.js, Tailwind CSS, PostgreSQL');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     initializeStorage();
@@ -56,7 +57,7 @@ export default function NewJobPage() {
 
     const companies = getAllCompanies();
     if (user && user.companyId) {
-      const comp = companies.find((c) => c.id === user.companyId) || companies[0];
+      const comp = companies.find((c) => c.id === user.companyId || (user.companyName && c.name.toLowerCase() === user.companyName.toLowerCase())) || companies[0];
       setCompany(comp);
     } else {
       setCompany(companies[0]);
@@ -79,10 +80,21 @@ export default function NewJobPage() {
   };
   const handleRemoveResp = (idx: number) => setResponsibilities(responsibilities.filter((_, i) => i !== idx));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !description.trim()) {
-      alert('Harap lengkapi judul dan deskripsi lowongan.');
+    setErrorMsg(null);
+
+    if (!title.trim()) {
+      setErrorMsg('Harap isi "Judul Posisi Pekerjaan" di bagian atas.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (!description.trim()) {
+      setErrorMsg('Harap isi "Deskripsi Lengkap Posisi".');
+      return;
+    }
+    if (!keySkillsInput.trim()) {
+      setErrorMsg('Harap isi "Keahlian Kunci Wajib (Key Skills)" untuk AI ATS.');
       return;
     }
 
@@ -93,33 +105,41 @@ export default function NewJobPage() {
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
 
-    const targetCompany = company || getAllCompanies()[0];
+    const user = getCurrentUser() || currentUser;
+    const targetCompanyId = user?.companyId || company?.id || 'comp-1787322231026';
+    const targetCompanyName = user?.companyName || company?.name || 'PT Korek';
+    const targetCompanyLogo = user?.avatar || company?.logo;
+    const targetCompanyIndustry = company?.industry || 'Teknologi Informasi';
 
-    createJob({
-      companyId: targetCompany.id,
-      companyName: targetCompany.name,
-      companyLogo: targetCompany.logo,
-      companyIndustry: targetCompany.industry,
-      title,
-      department,
-      location,
-      type,
-      experienceLevel,
-      salaryRange,
-      minEducation,
-      genderRequirement,
-      description,
-      requirements: requirements.filter((r) => r.trim().length > 0),
-      responsibilities: responsibilities.filter((r) => r.trim().length > 0),
-      keySkills,
-      status: 'active',
-      deadline
-    });
+    try {
+      await createJob({
+        companyId: targetCompanyId,
+        companyName: targetCompanyName,
+        companyLogo: targetCompanyLogo,
+        companyIndustry: targetCompanyIndustry,
+        title: title.trim(),
+        department: department.trim(),
+        location: location.trim(),
+        type,
+        experienceLevel,
+        salaryRange: salaryRange.trim(),
+        minEducation: minEducation.trim(),
+        genderRequirement,
+        description: description.trim(),
+        requirements: requirements.filter((r) => r.trim().length > 0),
+        responsibilities: responsibilities.filter((r) => r.trim().length > 0),
+        keySkills,
+        status: 'active',
+        deadline
+      });
 
-    setTimeout(() => {
       setIsSubmitting(false);
       router.push('/company');
-    }, 400);
+    } catch (err) {
+      console.error('Error creating job:', err);
+      setErrorMsg('Gagal mempublikasikan lowongan. Silakan coba kembali.');
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -150,6 +170,13 @@ export default function NewJobPage() {
 
       {/* Form Container */}
       <form onSubmit={handleSubmit} className="p-6 sm:p-8 rounded-3xl bg-slate-900 border border-slate-800 space-y-6 text-xs shadow-2xl">
+        
+        {/* Error Alert Banner */}
+        {errorMsg && (
+          <div className="p-4 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 font-semibold text-xs flex items-center gap-2">
+            <span>⚠️ {errorMsg}</span>
+          </div>
+        )}
         
         {/* Basic Job Info */}
         <div className="space-y-4">
@@ -388,6 +415,13 @@ export default function NewJobPage() {
           </div>
         </div>
 
+        {/* Bottom Error Alert Banner */}
+        {errorMsg && (
+          <div className="p-4 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 font-semibold text-xs flex items-center gap-2 animate-in fade-in">
+            <span>⚠️ {errorMsg}</span>
+          </div>
+        )}
+
         <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
           <Link
             href="/company"
@@ -399,7 +433,7 @@ export default function NewJobPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all flex items-center gap-2 shadow-lg shadow-emerald-950/40 disabled:opacity-50"
+            className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all flex items-center gap-2 shadow-lg shadow-emerald-950/40 disabled:opacity-50 hover:scale-105"
           >
             {isSubmitting ? (
               <>

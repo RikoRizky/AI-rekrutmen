@@ -84,34 +84,38 @@ export default function CompanyPortalPage() {
 
     if (user && user.companyId) {
       const companies = getAllCompanies();
-      const comp = companies.find((c) => c.id === user.companyId) || companies[0];
+      const comp = companies.find((c) => c.id === user.companyId || (user.companyName && c.name.toLowerCase() === user.companyName.toLowerCase())) || companies[0];
       
-      // Auto-migrate if old logo exists
-      const cleanLogo = sanitizeLogo(comp);
-      if (comp.logo !== cleanLogo) {
-        updateCompany(comp.id, { logo: cleanLogo });
-        comp.logo = cleanLogo;
+      if (comp) {
+        // Auto-migrate if old logo exists
+        const cleanLogo = sanitizeLogo(comp);
+        if (comp.logo !== cleanLogo) {
+          updateCompany(comp.id, { logo: cleanLogo });
+          comp.logo = cleanLogo;
+        }
+
+        setCompany(comp);
+
+        const compJobs = getJobsByCompanyId(comp.id, comp.name);
+        setJobs(compJobs);
+
+        const compApps = getApplicationsByCompanyId(comp.id);
+        setApplications(compApps);
       }
-
-      setCompany(comp);
-
-      const compJobs = getJobsByCompanyId(comp.id);
-      setJobs(compJobs);
-
-      const compApps = getApplicationsByCompanyId(comp.id);
-      setApplications(compApps);
     } else {
       // Fallback to first company in storage
       const companies = getAllCompanies();
       const comp = companies[0];
-      const cleanLogo = sanitizeLogo(comp);
-      if (comp.logo !== cleanLogo) {
-        updateCompany(comp.id, { logo: cleanLogo });
-        comp.logo = cleanLogo;
+      if (comp) {
+        const cleanLogo = sanitizeLogo(comp);
+        if (comp.logo !== cleanLogo) {
+          updateCompany(comp.id, { logo: cleanLogo });
+          comp.logo = cleanLogo;
+        }
+        setCompany(comp);
+        setJobs(getJobsByCompanyId(comp.id, comp.name));
+        setApplications(getApplicationsByCompanyId(comp.id));
       }
-      setCompany(comp);
-      setJobs(getJobsByCompanyId(comp.id));
-      setApplications(getApplicationsByCompanyId(comp.id));
     }
   };
 

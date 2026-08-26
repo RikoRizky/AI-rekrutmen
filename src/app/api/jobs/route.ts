@@ -117,28 +117,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Perusahaan tidak ditemukan' }, { status: 404 });
     }
 
-    const newJob = await prisma.job.create({
-      data: {
-        companyId,
-        companyName: company.name || companyName,
-        companyLogo: company.logo || companyLogo,
-        companyIndustry: company.industry || companyIndustry,
-        title,
-        department,
-        location,
-        type: type || 'Full-time',
-        experienceLevel: experienceLevel || 'Mid-Level (3-5 thn)',
-        salaryRange: salaryRange || null,
-        description,
-        requirements: requirements || [],
-        responsibilities: responsibilities || [],
-        keySkills: keySkills || [],
-        minEducation: minEducation || 'S1 / Sederajat',
-        genderRequirement: genderRequirement || 'Semua Gender',
-        status: 'active',
-        deadline: deadline ? new Date(deadline) : null,
+    const jobData: Record<string, any> = {
+      ...(body.id ? { id: body.id } : {}),
+      companyId,
+      companyName: company.name || companyName,
+      companyLogo: company.logo || companyLogo,
+      companyIndustry: company.industry || companyIndustry,
+      title,
+      department,
+      location,
+      type: type || 'Full-time',
+      experienceLevel: experienceLevel || 'Mid-Level (3-5 thn)',
+      salaryRange: salaryRange || null,
+      description,
+      requirements: Array.isArray(requirements) ? requirements : [],
+      responsibilities: Array.isArray(responsibilities) ? responsibilities : [],
+      keySkills: Array.isArray(keySkills) ? keySkills : [],
+      minEducation: minEducation || 'S1 / Sederajat',
+      genderRequirement: genderRequirement || 'Semua Gender',
+      status: 'active',
+      deadline: deadline ? new Date(deadline) : null,
+    };
+
+    let newJob;
+    try {
+      newJob = await prisma.job.create({ data: jobData as any });
+    } catch (err: any) {
+      if (err?.message?.includes('genderRequirement')) {
+        delete jobData.genderRequirement;
+        newJob = await prisma.job.create({ data: jobData as any });
+      } else {
+        throw err;
       }
-    });
+    }
 
     return NextResponse.json({
       success: true,

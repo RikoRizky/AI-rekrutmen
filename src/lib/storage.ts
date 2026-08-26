@@ -668,28 +668,45 @@ export function getJobById(id: string): Job | null {
   return jobs.find((j) => j.id === id) || null;
 }
 
-export function getJobsByCompanyId(companyId: string): Job[] {
+export function getJobsByCompanyId(companyId: string, companyName?: string): Job[] {
   const jobs = getAllJobs();
-  return jobs.filter((j) => j.companyId === companyId);
+  return jobs.filter((j) => {
+    if (j.companyId === companyId) return true;
+    if (companyName && j.companyName && j.companyName.toLowerCase().trim() === companyName.toLowerCase().trim()) return true;
+    return false;
+  });
 }
 
-export function createJob(jobData: Omit<Job, 'id' | 'createdAt'>): Job {
+export async function createJob(jobData: Omit<Job, 'id' | 'createdAt'>): Promise<Job> {
   const jobs = getAllJobs();
-  const newJob: Job = {
+  const tempId = `job-${Date.now()}`;
+  let newJob: Job = {
     ...jobData,
-    id: `job-${Date.now()}`,
+    id: tempId,
     createdAt: new Date().toISOString()
   };
-  jobs.unshift(newJob);
-  localStorage.setItem(JOBS_KEY, JSON.stringify(jobs));
-  triggerDataRefresh();
 
-  // Asynchronously save to MySQL database
-  fetch('/api/jobs', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(newJob)
-  }).catch(console.error);
+  try {
+    const res = await fetch('/api/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newJob)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.job) {
+        newJob = data.job;
+      }
+    }
+  } catch (err) {
+    console.warn('MySQL save error for createJob:', err);
+  }
+
+  // Prepend new job to local cache (avoid duplicates)
+  const filtered = jobs.filter((j) => j.id !== newJob.id && j.id !== tempId);
+  filtered.unshift(newJob);
+  localStorage.setItem(JOBS_KEY, JSON.stringify(filtered));
+  triggerDataRefresh();
 
   return newJob;
 }
