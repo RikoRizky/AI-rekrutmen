@@ -1,5 +1,6 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
+import bcrypt from 'bcryptjs';
 import {
   SEED_COMPANIES,
   SEED_USERS,
@@ -55,6 +56,7 @@ async function main() {
   // 2. Users
   console.log('Inserting users...');
   for (const user of SEED_USERS) {
+    const hashedPassword = await bcrypt.hash(user.password || 'password123', 10);
     await prisma.user.upsert({
       where: { email: user.email },
       update: {
@@ -71,7 +73,7 @@ async function main() {
         id: user.id,
         name: user.name,
         email: user.email,
-        password: user.password || 'password123',
+        password: hashedPassword,
         role: user.role,
         phone: user.phone || null,
         headline: user.headline || null,

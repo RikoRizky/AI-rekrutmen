@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { hashPassword } from '@/lib/password';
 
 export async function POST(req: NextRequest) {
   try {
@@ -77,6 +78,8 @@ export async function POST(req: NextRequest) {
     });
 
     // 4. Create or update Admin User in DB
+    const hashedPassword = password ? await hashPassword(password) : await hashPassword('123456');
+
     let user = await prisma.user.findUnique({
       where: { email: adminEmail.toLowerCase().trim() }
     });
@@ -89,7 +92,7 @@ export async function POST(req: NextRequest) {
           phone: adminPhone || user.phone,
           role: 'company_admin',
           companyId: company.id,
-          password: password || user.password
+          password: password ? hashedPassword : user.password
         }
       });
     } else {
@@ -98,7 +101,7 @@ export async function POST(req: NextRequest) {
           id: `user-${Date.now()}`,
           name: adminName,
           email: adminEmail.toLowerCase().trim(),
-          password: password || '123456',
+          password: hashedPassword,
           phone: adminPhone || '',
           role: 'company_admin',
           companyId: company.id,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { hashPassword } from '@/lib/password';
 
 // GET /api/companies - List all companies
 export async function GET() {
@@ -86,12 +87,13 @@ export async function POST(req: NextRequest) {
         }
       });
     } else {
+      const hashedPassword = await hashPassword(adminPassword || 'password123');
       adminUser = await prisma.user.create({
         data: {
           id: `user-${Date.now()}`,
           name: adminName,
           email: adminEmail,
-          password: adminPassword || 'password123',
+          password: hashedPassword,
           phone: adminPhone || null,
           role: 'company_admin',
           companyId: newCompany.id,

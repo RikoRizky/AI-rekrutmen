@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getDefaultUserAvatar } from '@/lib/storage';
+import { hashPassword, verifyPassword, isPasswordHashed } from '@/lib/password';
 
 // GET /api/auth?email=... OR GET all users
 export async function GET(req: NextRequest) {
@@ -133,14 +134,14 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Register new user via Google
+      // Register new user via Google (null password for OAuth accounts)
       const avatar = getDefaultUserAvatar(name || cleanEmail);
       user = await prisma.user.create({
         data: {
           id: `user-${Date.now()}`,
           name: name || cleanEmail.split('@')[0],
           email: cleanEmail,
-          password: 'google-oauth-authenticated',
+          password: null,
           role: role || 'applicant',
           phone: phone || null,
           headline: headline || 'Pencari Kerja / Talenta',
@@ -190,13 +191,14 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      const hashedPassword = await hashPassword(cleanPassword);
       const avatar = getDefaultUserAvatar(name || cleanEmail);
       const newUser = await prisma.user.create({
         data: {
           id: `user-${Date.now()}`,
           name: name || cleanEmail.split('@')[0],
           email: cleanEmail,
-          password: cleanPassword,
+          password: hashedPassword,
           role: role || 'applicant',
           phone: phone || null,
           headline: headline || (role === 'applicant' ? 'Pencari Kerja / Talenta' : role === 'super_admin' ? 'Super Administrator' : 'Recruiter / Talent Acquisition'),
@@ -241,24 +243,37 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify Password
-    // Check if account is Google OAuth only (no manual password set)
-    if (user.password === 'google-oauth-authenticated' && cleanPassword !== 'google-oauth-authenticated') {
+    // Check if account was registered exclusively via Google OAuth
+    if (!user.password || user.password === 'google-oauth-authenticated') {
       return NextResponse.json(
         {
           success: false,
-          error: 'Akun ini terdaftar menggunakan Akun Google. Silakan klik tombol "Lanjutkan dengan Akun Google" di atas untuk masuk.'
+          error: 'Akun ini terdaftar menggunakan Akun Google. Silakan klik tombol "Lanjutkan dengan Akun Google" untuk masuk.'
         },
         { status: 401 }
       );
     }
 
-    // Check if password matches
-    const expectedPassword = user.password || 'password123';
-    if (cleanPassword !== expectedPassword) {
+    // Check if password matches (bcrypt or legacy plaintext)
+    const isMatch = await verifyPassword(cleanPassword, user.password);
+    if (!isMatch) {
       return NextResponse.json(
         { success: false, error: 'Kata sandi (password) yang Anda masukkan salah. Silakan periksa kembali.' },
         { status: 401 }
       );
+    }
+
+    // If password was verified but not yet bcrypt-hashed, auto-upgrade to bcrypt hash in DB
+    if (!isPasswordHashed(user.password)) {
+      try {
+        const upgradedHash = await hashPassword(cleanPassword);
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { password: upgradedHash }
+        });
+      } catch (err) {
+        console.error('Failed to auto-upgrade password hash:', err);
+      }
     }
 
     // Password valid! Return user session
