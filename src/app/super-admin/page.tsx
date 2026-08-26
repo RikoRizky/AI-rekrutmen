@@ -398,9 +398,21 @@ export default function SuperAdminPage() {
                     </td>
                     <td className="py-3.5 px-4 text-slate-300">{c.industry}</td>
                     <td className="py-3.5 px-4">
-                      <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30">
-                        {c.activeSubscription || 'Starter'}
-                      </span>
+                      {(() => {
+                        const sub = c.activeSubscription || 'Perusahaan';
+                        const isUmk = sub.toLowerCase().includes('umk') || sub.toLowerCase().includes('starter');
+                        const isInd = sub.toLowerCase().includes('industri') || sub.toLowerCase().includes('enterprise');
+                        const badgeClass = isUmk
+                          ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                          : isInd
+                          ? 'bg-purple-500/15 text-purple-300 border-purple-500/30'
+                          : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+                        return (
+                          <span className={`px-2 py-0.5 rounded font-semibold border ${badgeClass}`}>
+                            {sub}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="py-3.5 px-4">{c.jobQuota} Loker</td>
                     <td className="py-3.5 px-4">

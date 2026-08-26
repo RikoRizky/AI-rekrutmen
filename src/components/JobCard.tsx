@@ -14,9 +14,11 @@ import {
   Users,
   CheckCircle2,
   Banknote,
-  ArrowRight
+  ArrowRight,
+  Store,
+  Factory
 } from 'lucide-react';
-import { getDefaultCompanyLogo, getCurrentUser, getAllApplications, getJobDeadlineCountdown } from '@/lib/storage';
+import { getDefaultCompanyLogo, getCurrentUser, getAllApplications, getJobDeadlineCountdown, getCompanyScaleCategory } from '@/lib/storage';
 
 interface JobCardProps {
   job: Job;
@@ -27,6 +29,8 @@ interface JobCardProps {
 export default function JobCard({ job, applicantCount = 0, hasApplied: initialHasApplied = false }: JobCardProps) {
   const [hasApplied, setHasApplied] = React.useState(initialHasApplied);
   const deadlineInfo = getJobDeadlineCountdown(job.deadline);
+
+  const scaleCategory = job.companyCategory || getCompanyScaleCategory(undefined, job.companyName, job.companyIndustry);
 
   React.useEffect(() => {
     if (initialHasApplied) {
@@ -46,6 +50,7 @@ export default function JobCard({ job, applicantCount = 0, hasApplied: initialHa
       setHasApplied(false);
     }
   }, [initialHasApplied, job.id]);
+
   const getJobTypeBadge = (type: string) => {
     switch (type) {
       case 'Remote':
@@ -58,6 +63,31 @@ export default function JobCard({ job, applicantCount = 0, hasApplied: initialHa
         return 'bg-slate-800 text-slate-300 border-slate-700';
     }
   };
+
+  const getScaleBadge = (category: string) => {
+    switch (category) {
+      case 'UMK':
+        return {
+          label: 'UMK',
+          badgeClass: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+          icon: <Store className="w-3 h-3 text-amber-400" />
+        };
+      case 'Industri':
+        return {
+          label: 'Industri',
+          badgeClass: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
+          icon: <Factory className="w-3 h-3 text-purple-400" />
+        };
+      default:
+        return {
+          label: 'Perusahaan',
+          badgeClass: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+          icon: <Building2 className="w-3 h-3 text-emerald-400" />
+        };
+    }
+  };
+
+  const scaleInfo = getScaleBadge(scaleCategory);
 
   const companyLogo =
     job.companyLogo && !job.companyLogo.includes('photo-1599305445671-ac291c95aaa9')
@@ -82,9 +112,15 @@ export default function JobCard({ job, applicantCount = 0, hasApplied: initialHa
               className="w-12 h-12 rounded-2xl object-cover ring-1 ring-slate-800 bg-slate-950 shrink-0 shadow-md"
             />
             <div className="min-w-0">
-              <span className="text-xs font-bold text-emerald-400 tracking-wide block truncate">
-                {job.companyName || 'Perusahaan Mitra'}
-              </span>
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className="text-xs font-bold text-white tracking-wide block truncate">
+                  {job.companyName || 'Perusahaan Mitra'}
+                </span>
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded-md text-[10px] font-bold border shrink-0 ${scaleInfo.badgeClass}`}>
+                  {scaleInfo.icon}
+                  <span>{scaleInfo.label}</span>
+                </span>
+              </div>
               <span className="text-[11px] text-slate-400 block truncate">
                 {job.companyIndustry || job.location}
               </span>
@@ -117,16 +153,37 @@ export default function JobCard({ job, applicantCount = 0, hasApplied: initialHa
           </div>
         </div>
 
-        {/* Row 4: Location, Department, Level Pills */}
+        {/* Row 4: Location, Education, Gender, Level Pills */}
         <div className="flex flex-wrap gap-1.5 mb-3 text-xs">
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-300 text-[11px]">
             <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-            <span className="truncate max-w-[140px]">{job.location}</span>
+            <span className="truncate max-w-[130px]">{job.location}</span>
           </span>
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-300 text-[11px]">
-            <Briefcase className="w-3 h-3 text-slate-400 shrink-0" />
-            <span className="truncate max-w-[140px]">{job.department}</span>
-          </span>
+
+          {job.minEducation && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 text-emerald-300 text-[11px] font-medium">
+              <span>Min. {job.minEducation.split(' / ')[0]}</span>
+            </span>
+          )}
+
+          {job.genderRequirement && (
+            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-medium ${
+              job.genderRequirement.toLowerCase().includes('perempuan') || job.genderRequirement.toLowerCase().includes('wanita')
+                ? 'bg-pink-500/10 text-pink-300 border-pink-500/30'
+                : job.genderRequirement.toLowerCase().includes('laki') || job.genderRequirement.toLowerCase().includes('pria')
+                ? 'bg-sky-500/10 text-sky-300 border-sky-500/30'
+                : 'bg-slate-950/80 text-slate-400 border-slate-800'
+            }`}>
+              <span>
+                {job.genderRequirement.toLowerCase().includes('perempuan') || job.genderRequirement.toLowerCase().includes('wanita')
+                  ? '👩 Khusus Wanita'
+                  : job.genderRequirement.toLowerCase().includes('laki') || job.genderRequirement.toLowerCase().includes('pria')
+                  ? '👨 Khusus Pria'
+                  : '👥 Pria & Wanita'}
+              </span>
+            </span>
+          )}
+
           {job.experienceLevel && (
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-300 text-[11px]">
               <Clock className="w-3 h-3 text-slate-400 shrink-0" />

@@ -7,13 +7,13 @@ export const SEED_COMPANIES: Company[] = [
     slug: 'astra-digital-nusantara',
     logo: 'https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=120&auto=format&fit=crop&q=80',
     description: 'Divisi inovasi digital terdepan dari grup konglomerasi otomotif dan teknologi terbesar di Indonesia.',
-    industry: 'Teknologi & Otomotif',
+    industry: 'Manufaktur, Otomotif & Teknologi',
     website: 'https://astradigital.co.id',
     address: 'Menara Astra Lt. 35, Jl. Jend. Sudirman Kav. 5-6, Jakarta Pusat',
     isVerified: true,
-    activeSubscription: 'Professional',
+    activeSubscription: 'Industri',
     subscriptionExpiresAt: '2026-12-31T23:59:59Z',
-    jobQuota: 15,
+    jobQuota: 999,
     createdAt: '2025-01-10T08:00:00Z'
   },
   {
@@ -26,9 +26,9 @@ export const SEED_COMPANIES: Company[] = [
     website: 'https://mandirifintech.id',
     address: 'Plaza Mandiri, Jl. Gatot Subroto Kav. 36-38, Jakarta Selatan',
     isVerified: true,
-    activeSubscription: 'Enterprise',
+    activeSubscription: 'Perusahaan',
     subscriptionExpiresAt: '2026-11-15T23:59:59Z',
-    jobQuota: 50,
+    jobQuota: 20,
     createdAt: '2025-02-01T09:00:00Z'
   },
   {
@@ -41,10 +41,40 @@ export const SEED_COMPANIES: Company[] = [
     website: 'https://telkomdigital.co.id',
     address: 'Telkom Landmark Tower, Jl. Gatot Subroto, Jakarta Selatan',
     isVerified: true,
-    activeSubscription: 'Starter',
+    activeSubscription: 'Industri',
     subscriptionExpiresAt: '2026-09-30T23:59:59Z',
-    jobQuota: 5,
+    jobQuota: 999,
     createdAt: '2025-02-15T10:00:00Z'
+  },
+  {
+    id: 'comp-4',
+    name: 'Kopi Craft Nusantara (UMK)',
+    slug: 'kopi-craft-nusantara',
+    logo: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=120&auto=format&fit=crop&q=80',
+    description: 'Jaringan usaha mikro-kecil kedai kopi artisan lokal yang memberdayakan petani kopi nusantara dan talenta muda.',
+    industry: 'Kuliner & F&B (UMK)',
+    website: 'https://kopicraft.id',
+    address: 'Jl. Senopati No. 28, Kebayoran Baru, Jakarta Selatan',
+    isVerified: true,
+    activeSubscription: 'UMK',
+    subscriptionExpiresAt: '2026-08-31T23:59:59Z',
+    jobQuota: 5,
+    createdAt: '2025-02-16T10:00:00Z'
+  },
+  {
+    id: 'comp-5',
+    name: 'Studio Desain Lumina (UMK)',
+    slug: 'studio-desain-lumina',
+    logo: 'https://images.unsplash.com/photo-1572044162444-ad60f128bdea?w=120&auto=format&fit=crop&q=80',
+    description: 'Creative studio dan agensi desain grafis skala kecil yang berfokus pada identitas visual brand lokal.',
+    industry: 'Kreatif & Desain (UMK)',
+    website: 'https://lumina-studio.co',
+    address: 'Jl. Riau No. 54, Bandung, Jawa Barat',
+    isVerified: true,
+    activeSubscription: 'UMK',
+    subscriptionExpiresAt: '2026-10-31T23:59:59Z',
+    jobQuota: 5,
+    createdAt: '2025-02-17T11:00:00Z'
   }
 ];
 
@@ -182,30 +212,34 @@ export const SEED_USERS: User[] = [
 
 export const SUBSCRIPTION_PACKAGES: SubscriptionPackage[] = [
   {
-    id: 'pkg-starter',
-    name: 'Starter Business',
-    price: 499000,
-    priceFormatted: 'Rp 499.000',
+    id: 'pkg-umk',
+    name: 'Paket UMK',
+    category: 'UMK',
+    price: 299000,
+    priceFormatted: 'Rp 299.000',
     billingPeriod: '/bulan',
-    description: 'Cocok untuk startup atau UMKM yang sedang mencari talenta inti terbaik.',
+    description: 'Solusi rekrutmen praktis & hemat biaya khusus untuk Usaha Mikro & Kecil (UMK), rintisan, dan toko.',
+    badge: 'UNTUK UMK',
     features: [
       'Hingga 5 Lowongan Kerja Aktif',
       '100 Evaluasi AI CV & Dokumen/Bulan',
       'Skor Kecocokan Otomatis (0-100)',
       'Ekstraksi Teks PDF & Word Cerdas',
+      'Label Badge Khusus UMK di Katalog Loker',
       'Email Notifikasi Status Pelamar',
-      'Dukungan Email 24/7'
+      'Dukungan Bantuan Teknis 24/7'
     ],
     maxJobs: 5,
     aiQuota: 100
   },
   {
-    id: 'pkg-pro',
-    name: 'Professional HR ATS',
+    id: 'pkg-perusahaan',
+    name: 'Paket Perusahaan',
+    category: 'Perusahaan',
     price: 1299000,
     priceFormatted: 'Rp 1.299.000',
     billingPeriod: '/bulan',
-    description: 'Paling populer untuk perusahaan berkembang dengan volume rekrutmen tinggi.',
+    description: 'Paling populer untuk perusahaan menengah (PT/CV) berkembang dengan volume rekrutmen aktif.',
     badge: 'PALING POPULER',
     isPopular: true,
     features: [
@@ -214,6 +248,7 @@ export const SUBSCRIPTION_PACKAGES: SubscriptionPackage[] = [
       'Radar Chart Kompetensi 5 Dimensi',
       'AI Custom Interview Question Generator',
       'Analisis Mendalam Strengths & Skill Gaps',
+      'Label Badge Resmi Perusahaan (PT) Terverifikasi',
       'Integrasi Google Meet & Resend Notifikasi',
       'Prioritas Antrean Analisis Gemini Pro'
     ],
@@ -221,16 +256,19 @@ export const SUBSCRIPTION_PACKAGES: SubscriptionPackage[] = [
     aiQuota: 500
   },
   {
-    id: 'pkg-enterprise',
-    name: 'Enterprise Corporation',
+    id: 'pkg-industri',
+    name: 'Paket Industri',
+    category: 'Industri',
     price: 3499000,
     priceFormatted: 'Rp 3.499.000',
     billingPeriod: '/bulan',
-    description: 'Solusi tanpa batas untuk korporasi besar dengan kebutuhan ATS kustom.',
+    description: 'Solusi tanpa batas untuk manufaktur, kawasan industri, pabrik, dan korporasi skala besar.',
+    badge: 'SKALA INDUSTRI',
     features: [
       'Lowongan Kerja Tanpa Batas (Unlimited)',
       'Evaluasi AI CV & Portofolio Tanpa Batas',
-      'Multi-Recruiter & Role Management',
+      'Multi-Recruiter & Role Management HRD',
+      'Label Badge Khusus Skala Industri & Manufaktur',
       'Akses API ATS & Webhook Khusus',
       'Kustom Bobot Algoritma Penilaian AI',
       'Dedicated Account Manager & SLA 99.9%'
@@ -246,8 +284,8 @@ export const SEED_TRANSACTIONS: Transaction[] = [
     orderId: 'ORDER-ASTRA-20250110',
     companyEmail: 'sarah.wijaya@astradigital.co.id',
     companyName: 'PT Astra Digital Nusantara',
-    packageName: 'Professional HR ATS',
-    amount: 1299000,
+    packageName: 'Paket Industri',
+    amount: 3499000,
     paymentType: 'bank_transfer (BCA)',
     status: 'settlement',
     paidAt: '2025-01-10T08:15:30Z',
@@ -258,8 +296,8 @@ export const SEED_TRANSACTIONS: Transaction[] = [
     orderId: 'ORDER-MANDIRI-20250201',
     companyEmail: 'talent@mandirifintech.id',
     companyName: 'PT Mandiri Fintech Solusindo',
-    packageName: 'Enterprise Corporation',
-    amount: 3499000,
+    packageName: 'Paket Perusahaan',
+    amount: 1299000,
     paymentType: 'qris',
     status: 'settlement',
     paidAt: '2025-02-01T09:05:12Z',
@@ -267,15 +305,15 @@ export const SEED_TRANSACTIONS: Transaction[] = [
   },
   {
     id: 'trx-003',
-    orderId: 'ORDER-TELKOM-20250215',
-    companyEmail: 'recruitment@telkomdigital.co.id',
-    companyName: 'PT Telkom Digital Inovasi',
-    packageName: 'Starter Business',
-    amount: 499000,
-    paymentType: 'credit_card',
+    orderId: 'ORDER-KOPI-20250216',
+    companyEmail: 'owner@kopicraft.id',
+    companyName: 'Kopi Craft Nusantara (UMK)',
+    packageName: 'Paket UMK',
+    amount: 299000,
+    paymentType: 'qris',
     status: 'settlement',
-    paidAt: '2025-02-15T10:02:40Z',
-    createdAt: '2025-02-15T10:00:00Z'
+    paidAt: '2025-02-16T10:02:40Z',
+    createdAt: '2025-02-16T10:00:00Z'
   }
 ];
 
@@ -285,7 +323,8 @@ export const SEED_JOBS: Job[] = [
     companyId: 'comp-1',
     companyName: 'PT Astra Digital Nusantara',
     companyLogo: 'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=120&auto=format&fit=crop&q=60',
-    companyIndustry: 'Teknologi & Otomotif',
+    companyIndustry: 'Manufaktur & Otomotif',
+    companyCategory: 'Industri',
     title: 'Senior Fullstack TypeScript Engineer',
     department: 'Engineering & Product',
     location: 'Jakarta Pusat (Hybrid)',
@@ -308,6 +347,7 @@ export const SEED_JOBS: Job[] = [
     ],
     keySkills: ['TypeScript', 'Next.js', 'React', 'Node.js', 'PostgreSQL', 'Docker', 'AWS', 'Tailwind CSS'],
     minEducation: 'S1 Teknik Informatika / Sistem Informasi / Terkait',
+    genderRequirement: 'Semua Gender',
     status: 'active',
     createdAt: '2025-02-10T08:00:00Z',
     deadline: '2026-06-30'
@@ -318,6 +358,7 @@ export const SEED_JOBS: Job[] = [
     companyName: 'PT Mandiri Fintech Solusindo',
     companyLogo: 'https://images.unsplash.com/photo-1551836022-deb4988cc6c0?w=120&auto=format&fit=crop&q=60',
     companyIndustry: 'Perbankan & Fintech',
+    companyCategory: 'Perusahaan',
     title: 'AI / Machine Learning Engineer',
     department: 'Artificial Intelligence & Data',
     location: 'Jakarta Selatan (Onsite)',
@@ -338,6 +379,7 @@ export const SEED_JOBS: Job[] = [
     ],
     keySkills: ['Python', 'Machine Learning', 'PyTorch', 'LLM / RAG', 'Scikit-Learn', 'FastAPI', 'Docker'],
     minEducation: 'S1 / S2 Komputer / Matematika',
+    genderRequirement: 'Semua Gender',
     status: 'active',
     createdAt: '2025-02-12T09:30:00Z',
     deadline: '2026-07-15'
@@ -348,6 +390,7 @@ export const SEED_JOBS: Job[] = [
     companyName: 'PT Telkom Digital Inovasi',
     companyLogo: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=120&auto=format&fit=crop&q=60',
     companyIndustry: 'Telekomunikasi & AI',
+    companyCategory: 'Industri',
     title: 'Senior Product Designer (UI/UX)',
     department: 'Design & Research',
     location: 'Bandung / Remote',
@@ -368,9 +411,74 @@ export const SEED_JOBS: Job[] = [
     ],
     keySkills: ['Figma', 'UI/UX Design', 'Design System', 'User Research', 'Prototyping', 'B2B SaaS'],
     minEducation: 'D3 / S1 Desain Komunikasi Visual / IT / Terkait',
+    genderRequirement: 'Semua Gender',
     status: 'active',
     createdAt: '2025-02-15T11:00:00Z',
     deadline: '2026-08-01'
+  },
+  {
+    id: 'job-4',
+    companyId: 'comp-4',
+    companyName: 'Kopi Craft Nusantara (UMK)',
+    companyLogo: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=120&auto=format&fit=crop&q=80',
+    companyIndustry: 'Kuliner & F&B (UMK)',
+    companyCategory: 'UMK',
+    title: 'Head Barista & Operational Lead',
+    department: 'Operasional & Bar',
+    location: 'Jakarta Selatan (Onsite)',
+    type: 'Full-time',
+    experienceLevel: 'Junior (1-2 thn)',
+    salaryRange: 'Rp 4.800.000 - Rp 6.500.000',
+    description: 'Dicari Head Barista yang energik dan memiliki passion tinggi dalam specialty coffee nusantara untuk memimpin operasional harian outlet kedai kopi UMK kami di Senopati.',
+    requirements: [
+      'Pengalaman minimal 1-2 tahun sebagai Barista / Senior Barista.',
+      'Menguasai teknik manual brew (V60, Aeropress, Kalita) dan espresso calibration.',
+      'Memiliki kemampuan komunikasi ramah dan pelayanan pelanggan prima.',
+      'Mampu mengelola inventaris bahan baku dan shift tim barista.'
+    ],
+    responsibilities: [
+      'Menyajikan seduhan kopi berkualitas tinggi sesuai SOP kedai.',
+      'Mengelola stok beans, susu, dan bahan baku harian.',
+      'Melatih barista junior dalam teknik seduh dan hospitality.'
+    ],
+    keySkills: ['Manual Brew', 'Espresso Machine', 'Hospitality', 'Stock Management', 'Team Leadership'],
+    minEducation: 'SMA / SMK Sederajat',
+    genderRequirement: 'Laki-laki',
+    status: 'active',
+    createdAt: '2025-02-16T12:00:00Z',
+    deadline: '2026-09-01'
+  },
+  {
+    id: 'job-5',
+    companyId: 'comp-5',
+    companyName: 'Studio Desain Lumina (UMK)',
+    companyLogo: 'https://images.unsplash.com/photo-1572044162444-ad60f128bdea?w=120&auto=format&fit=crop&q=80',
+    companyIndustry: 'Kreatif & Desain (UMK)',
+    companyCategory: 'UMK',
+    title: 'Creative Graphic & Social Media Designer',
+    department: 'Creative & Social Media',
+    location: 'Bandung (Hybrid)',
+    type: 'Hybrid',
+    experienceLevel: 'Entry-Level',
+    salaryRange: 'Rp 4.500.000 - Rp 6.000.000',
+    description: 'Studio Desain Lumina mencari talenta kreatif muda untuk merancang aset visual media sosial, motion graphics ringan, dan banner promosi untuk klien-klien brand lokal.',
+    requirements: [
+      'Menguasai Adobe Illustrator, Photoshop, dan Canva / Figma.',
+      'Memiliki portofolio konten visual media sosial (Instagram, TikTok, Behance).',
+      'Paham tren visual terkini, tipografi, dan komposisi warna modern.',
+      'Kreatif, komunikatif, dan mampu bekerja dengan deadline yang fleksibel.'
+    ],
+    responsibilities: [
+      'Membuat konten visual feed Instagram, carousel, dan story promosi klien.',
+      'Merancang visual identity pendukung (icon, logo layout, flyer digital).',
+      'Bekerja sama dengan Social Media Strategist dalam eksekusi campaign.'
+    ],
+    keySkills: ['Adobe Illustrator', 'Photoshop', 'Figma', 'Social Media Design', 'Visual Branding'],
+    minEducation: 'SMK Multimedia / D3 / S1 Desain',
+    genderRequirement: 'Perempuan',
+    status: 'active',
+    createdAt: '2025-02-17T13:00:00Z',
+    deadline: '2026-09-15'
   }
 ];
 

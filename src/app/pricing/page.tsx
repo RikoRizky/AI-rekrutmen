@@ -30,7 +30,9 @@ import {
   FileEdit,
   Copy,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Store,
+  Factory
 } from 'lucide-react';
 
 export default function PricingPage() {
@@ -414,23 +416,56 @@ export default function PricingPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
               {SUBSCRIPTION_PACKAGES.map((pkg) => {
                 const isPop = pkg.isPopular;
+                const isUmk = pkg.category === 'UMK';
+                const isIndustri = pkg.category === 'Industri';
+
+                const cardBorder = isPop
+                  ? 'border-2 border-emerald-500 shadow-2xl shadow-emerald-950/40 -translate-y-2'
+                  : isUmk
+                  ? 'border border-amber-500/30 hover:border-amber-500/60 shadow-lg shadow-amber-950/20'
+                  : isIndustri
+                  ? 'border border-purple-500/30 hover:border-purple-500/60 shadow-lg shadow-purple-950/20'
+                  : 'border border-slate-800 hover:border-slate-700';
+
                 return (
                   <div
                     key={pkg.id}
-                    className={`relative rounded-3xl p-8 flex flex-col justify-between transition-all ${isPop
-                      ? 'bg-slate-900 border-2 border-emerald-500 shadow-2xl shadow-emerald-950/40 -translate-y-2'
-                      : 'bg-slate-900/80 border border-slate-800 hover:border-slate-700'
-                      }`}
+                    className={`relative rounded-3xl p-8 flex flex-col justify-between transition-all bg-slate-900 ${cardBorder}`}
                   >
-                    {isPop && (
-                      <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-emerald-600 text-white font-bold text-[11px] uppercase tracking-wider shadow-md">
-                        Paling Populer
+                    {/* Badge top tag */}
+                    {pkg.badge && (
+                      <div
+                        className={`absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full font-bold text-[10px] sm:text-[11px] uppercase tracking-wider shadow-md flex items-center gap-1.5 ${
+                          isPop
+                            ? 'bg-emerald-600 text-white'
+                            : isUmk
+                            ? 'bg-amber-500 text-slate-950 font-black'
+                            : 'bg-purple-600 text-white'
+                        }`}
+                      >
+                        {isUmk ? <Store className="w-3 h-3" /> : isIndustri ? <Factory className="w-3 h-3" /> : <Building2 className="w-3 h-3" />}
+                        <span>{pkg.badge}</span>
                       </div>
                     )}
 
                     <div>
                       <div className="mb-4">
-                        <h3 className="text-xl font-bold text-white">{pkg.name}</h3>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          {isUmk ? (
+                            <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+                              <Store className="w-4 h-4" />
+                            </div>
+                          ) : isIndustri ? (
+                            <div className="w-8 h-8 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-400 flex items-center justify-center">
+                              <Factory className="w-4 h-4" />
+                            </div>
+                          ) : (
+                            <div className="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
+                              <Building2 className="w-4 h-4" />
+                            </div>
+                          )}
+                          <h3 className="text-xl font-bold text-white">{pkg.name}</h3>
+                        </div>
                         <p className="text-xs text-slate-400 mt-1 min-h-[32px]">{pkg.description}</p>
                       </div>
 
@@ -443,7 +478,13 @@ export default function PricingPage() {
                         <p className="font-semibold text-slate-300">Fitur Utama Termasuk:</p>
                         {pkg.features.map((feat, i) => (
                           <div key={i} className="flex items-start gap-2.5 text-slate-300">
-                            <div className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                            <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                              isUmk
+                                ? 'bg-amber-500/20 text-amber-400'
+                                : isIndustri
+                                ? 'bg-purple-500/20 text-purple-400'
+                                : 'bg-emerald-500/20 text-emerald-400'
+                            }`}>
                               <Check className="w-2.5 h-2.5" />
                             </div>
                             <span>{feat}</span>
@@ -455,13 +496,18 @@ export default function PricingPage() {
                     <div className="pt-8 mt-6 border-t border-slate-800/80">
                       <button
                         onClick={() => handleSelectPackage(pkg)}
-                        className={`w-full py-3.5 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 shadow-lg ${isPop
-                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/40'
-                          : 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
-                          }`}
+                        className={`w-full py-3.5 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 shadow-lg ${
+                          isPop
+                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/40'
+                            : isUmk
+                            ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-950/30'
+                            : isIndustri
+                            ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-950/30'
+                            : 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
+                        }`}
                       >
                         <CreditCard className="w-4 h-4" />
-                        <span>Pilih Paket Ini</span>
+                        <span>Pilih {pkg.name}</span>
                       </button>
                     </div>
                   </div>

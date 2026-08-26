@@ -63,6 +63,8 @@ export interface User {
   createdAt: string;
 }
 
+export type CompanyScaleCategory = 'UMK' | 'Perusahaan' | 'Industri';
+
 export interface Company {
   id: string;
   name: string;
@@ -73,7 +75,7 @@ export interface Company {
   website?: string;
   address: string;
   isVerified: boolean;
-  activeSubscription?: string; // 'Starter' | 'Pro' | 'Enterprise'
+  activeSubscription?: string; // 'UMK' | 'Perusahaan' | 'Industri' | string
   subscriptionExpiresAt?: string;
   jobQuota: number;
   createdAt: string;
@@ -92,6 +94,7 @@ export interface CompanyInvitationToken {
 export interface SubscriptionPackage {
   id: string;
   name: string;
+  category: CompanyScaleCategory; // 'UMK' | 'Perusahaan' | 'Industri'
   price: number; // in IDR
   priceFormatted: string;
   billingPeriod: string;
@@ -125,6 +128,7 @@ export interface Job {
   companyName: string;
   companyLogo?: string;
   companyIndustry?: string;
+  companyCategory?: CompanyScaleCategory | string;
   title: string;
   department: string;
   location: string;
@@ -136,6 +140,7 @@ export interface Job {
   responsibilities: string[];
   keySkills: string[];
   minEducation: string;
+  genderRequirement?: 'Semua Gender' | 'Laki-laki' | 'Perempuan' | 'Khusus Pria' | 'Khusus Wanita' | string;
   status: 'active' | 'closed';
   createdAt: string;
   deadline?: string;

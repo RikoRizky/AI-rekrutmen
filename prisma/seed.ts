@@ -107,6 +107,7 @@ async function main() {
         responsibilities: job.responsibilities as Prisma.InputJsonValue,
         keySkills: job.keySkills as Prisma.InputJsonValue,
         minEducation: job.minEducation || null,
+        genderRequirement: job.genderRequirement || 'Semua Gender',
         status: job.status,
         deadline: job.deadline ? new Date(job.deadline) : null,
       },
@@ -127,6 +128,7 @@ async function main() {
         responsibilities: job.responsibilities as Prisma.InputJsonValue,
         keySkills: job.keySkills as Prisma.InputJsonValue,
         minEducation: job.minEducation || null,
+        genderRequirement: job.genderRequirement || 'Semua Gender',
         status: job.status,
         deadline: job.deadline ? new Date(job.deadline) : null,
         createdAt: new Date(job.createdAt),
@@ -233,8 +235,9 @@ async function main() {
   console.log('Inserting transactions...');
   for (const trx of SEED_TRANSACTIONS) {
     await prisma.transaction.upsert({
-      where: { orderId: trx.orderId },
+      where: { id: trx.id },
       update: {
+        orderId: trx.orderId,
         companyEmail: trx.companyEmail,
         companyName: trx.companyName,
         packageName: trx.packageName,

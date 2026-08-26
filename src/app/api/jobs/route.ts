@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
             logo: true,
             industry: true,
             isVerified: true,
+            activeSubscription: true,
           }
         },
         _count: {
@@ -48,15 +49,25 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    const formattedJobs = jobs.map((j) => ({
-      ...j,
-      companyLogo: j.company?.logo || j.companyLogo,
-      companyIndustry: j.company?.industry || j.companyIndustry,
-      companyName: j.company?.name || j.companyName,
-      createdAt: j.createdAt.toISOString(),
-      deadline: j.deadline ? j.deadline.toISOString() : undefined,
-      applicantCount: j._count.applications,
-    }));
+    const formattedJobs = jobs.map((j) => {
+      const sub = (j.company?.activeSubscription || '').toLowerCase();
+      const cat = sub.includes('umk') || sub.includes('starter')
+        ? 'UMK'
+        : sub.includes('industri') || sub.includes('enterprise')
+        ? 'Industri'
+        : 'Perusahaan';
+
+      return {
+        ...j,
+        companyLogo: j.company?.logo || j.companyLogo,
+        companyIndustry: j.company?.industry || j.companyIndustry,
+        companyName: j.company?.name || j.companyName,
+        companyCategory: cat,
+        createdAt: j.createdAt.toISOString(),
+        deadline: j.deadline ? j.deadline.toISOString() : undefined,
+        applicantCount: j._count.applications,
+      };
+    });
 
     return NextResponse.json({ success: true, jobs: formattedJobs });
   } catch (error: unknown) {
@@ -86,6 +97,7 @@ export async function POST(req: NextRequest) {
       responsibilities,
       keySkills,
       minEducation,
+      genderRequirement,
       deadline
     } = body;
 
@@ -122,6 +134,7 @@ export async function POST(req: NextRequest) {
         responsibilities: responsibilities || [],
         keySkills: keySkills || [],
         minEducation: minEducation || 'S1 / Sederajat',
+        genderRequirement: genderRequirement || 'Semua Gender',
         status: 'active',
         deadline: deadline ? new Date(deadline) : null,
       }

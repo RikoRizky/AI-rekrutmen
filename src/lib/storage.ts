@@ -11,7 +11,8 @@ import {
   UserRole,
   ApplicationStatus,
   AiEvaluationResult,
-  UserBiodata
+  UserBiodata,
+  CompanyScaleCategory
 } from './types';
 import {
   SEED_JOBS,
@@ -356,6 +357,30 @@ export function getAllCompanies(): Company[] {
 export function getCompanyById(id: string): Company | null {
   const companies = getAllCompanies();
   return companies.find((c) => c.id === id) || null;
+}
+
+export function getCompanyScaleCategory(
+  activeSubscription?: string | null,
+  companyName?: string,
+  industry?: string
+): CompanyScaleCategory {
+  const combined = `${activeSubscription || ''} ${companyName || ''} ${industry || ''}`.toLowerCase();
+  if (combined.includes('umk') || combined.includes('starter') || combined.includes('mikro') || combined.includes('kecil')) {
+    return 'UMK';
+  }
+  if (
+    combined.includes('industri') ||
+    combined.includes('enterprise') ||
+    combined.includes('manufaktur') ||
+    combined.includes('pabrik') ||
+    combined.includes('automotive') ||
+    combined.includes('telekomunikasi') ||
+    combined.includes('astra') ||
+    combined.includes('telkom')
+  ) {
+    return 'Industri';
+  }
+  return 'Perusahaan';
 }
 
 export function getDefaultUserAvatar(name: string): string {

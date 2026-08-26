@@ -110,6 +110,7 @@ model Job {
   responsibilities Json
   keySkills       Json
   minEducation    String?
+  genderRequirement String?        @default("Semua Gender")
   status          String         @default("active")
   deadline        DateTime?
   createdAt       DateTime       @default(now())

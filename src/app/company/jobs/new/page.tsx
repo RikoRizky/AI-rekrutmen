@@ -33,6 +33,7 @@ export default function NewJobPage() {
   const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel>('Mid-Level (3-5 thn)');
   const [salaryRange, setSalaryRange] = useState('Rp 15.000.000 - Rp 25.000.000');
   const [minEducation, setMinEducation] = useState('S1 Teknik Informatika / Terkait');
+  const [genderRequirement, setGenderRequirement] = useState<'Semua Gender' | 'Laki-laki' | 'Perempuan'>('Semua Gender');
   const [description, setDescription] = useState('');
   const [deadline, setDeadline] = useState('2026-12-31');
 
@@ -106,6 +107,7 @@ export default function NewJobPage() {
       experienceLevel,
       salaryRange,
       minEducation,
+      genderRequirement,
       description,
       requirements: requirements.filter((r) => r.trim().length > 0),
       responsibilities: responsibilities.filter((r) => r.trim().length > 0),
@@ -201,6 +203,39 @@ export default function NewJobPage() {
                 <option value="Contract">Contract</option>
                 <option value="Part-time">Part-time</option>
               </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Gender Requirement Field */}
+            <div className="space-y-1">
+              <label className="font-semibold text-slate-300 flex items-center gap-1.5">
+                <span>Kriteria Gender Pelamar: *</span>
+              </label>
+              <select
+                value={genderRequirement}
+                onChange={(e) => setGenderRequirement(e.target.value as any)}
+                className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500"
+              >
+                <option value="Semua Gender">👥 Terbuka untuk Pria & Wanita (Semua Gender)</option>
+                <option value="Laki-laki">👨 Khusus Laki-laki (Pria)</option>
+                <option value="Perempuan">👩 Khusus Perempuan (Wanita)</option>
+              </select>
+            </div>
+
+            {/* Min Education Field */}
+            <div className="space-y-1">
+              <label className="font-semibold text-slate-300 flex items-center gap-1.5">
+                <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Minimal Pendidikan Terakhir: *</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Contoh: SMA / SMK Sederajat, D3, S1 Informatika"
+                value={minEducation}
+                onChange={(e) => setMinEducation(e.target.value)}
+                className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500"
+              />
             </div>
           </div>
 
