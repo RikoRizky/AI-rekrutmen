@@ -32,7 +32,14 @@ import {
   AlertTriangle,
   Award,
   Copy,
-  FileCode
+  FileCode,
+  GitBranch,
+  Star,
+  Users,
+  Code2,
+  Activity,
+  BadgeCheck,
+  XCircle
 } from 'lucide-react';
 
 interface CandidateDetailModalProps {
@@ -402,28 +409,38 @@ export default function CandidateDetailModal({
                 </h4>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  {biodata?.gender && (
+                    <div>
+                      <span className="text-slate-500 text-[11px]">Jenis Kelamin:</span>
+                      <p className={`font-bold mt-0.5 ${
+                        biodata.gender === 'Laki-laki' ? 'text-blue-400' : 'text-pink-400'
+                      }`}>
+                        {biodata.gender === 'Laki-laki' ? '♂ Laki-laki' : '♀ Perempuan'}
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <span className="text-slate-500 text-[11px]">Tempat, Tgl Lahir:</span>
                     <p className="font-semibold text-white mt-0.5">
-                      {biodata?.birthPlace || 'Jakarta'}, {biodata?.birthDate || '1996-05-14'}
+                      {biodata?.birthPlace || '-'}, {biodata?.birthDate || '-'}
                     </p>
                   </div>
                   <div>
                     <span className="text-slate-500 text-[11px]">Kota Domisili:</span>
                     <p className="font-semibold text-white mt-0.5">
-                      {biodata?.city || 'Jakarta Selatan'}
+                      {biodata?.city || '-'}
                     </p>
                   </div>
                   <div>
                     <span className="text-slate-500 text-[11px]">Pendidikan Terakhir:</span>
                     <p className="font-semibold text-emerald-400 mt-0.5">
-                      {biodata?.lastEducation || 'S1'} - {biodata?.educationMajor || 'Teknik Informatika'}
+                      {biodata?.lastEducation || '-'} - {biodata?.educationMajor || '-'}
                     </p>
                   </div>
                   <div>
                     <span className="text-slate-500 text-[11px]">Universitas / IPK:</span>
                     <p className="font-semibold text-white mt-0.5">
-                      {biodata?.institutionName || 'Institut Teknologi Bandung'} ({biodata?.gpa || '3.82'})
+                      {biodata?.institutionName || '-'} {biodata?.gpa ? `(${biodata.gpa})` : ''}
                     </p>
                   </div>
                 </div>
@@ -436,114 +453,250 @@ export default function CandidateDetailModal({
                 )}
               </div>
 
-              {/* Social Media Links Audit */}
+              {/* Social Media Smart Cards — pakai platformsVerified jika ada, fallback ke customLinks */}
               <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
                 <h4 className="font-bold text-white flex items-center gap-2 text-xs">
                   <Share2 className="w-4 h-4 text-emerald-400" />
-                  <span>Tautan Sosial Media & Jejak Digital yang Dicantumkan Pelamar</span>
+                  <span>Tautan Sosial Media &amp; Jejak Digital yang Dicantumkan Pelamar</span>
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  
-                  {/* Render Custom Links if available */}
-                  {biodata?.socials?.customLinks && biodata.socials.customLinks.length > 0 ? (
-                    biodata.socials.customLinks.map((soc, idx) => {
-                      const isUrl = soc.urlOrUsername.startsWith('http');
-                      const linkHref = isUrl ? soc.urlOrUsername : `https://${soc.urlOrUsername}`;
+                  {/* Prioritas: pakai platformsVerified (hasil background check AI) */}
+                  {bgReport?.platformsVerified && bgReport.platformsVerified.length > 0 ? (
+                    bgReport.platformsVerified.map((pv, idx) => {
+                      const isNotFound = pv.status === 'not_found';
+                      const isVerified = pv.status === 'verified_public';
+                      const isUrl = pv.status === 'url_provided';
 
                       return (
                         <div
                           key={idx}
-                          className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/40 transition-colors flex items-center justify-between group"
+                          className={`p-3 rounded-xl border transition-colors flex items-start justify-between gap-2 group ${
+                            isNotFound
+                              ? 'bg-red-950/20 border-red-500/30'
+                              : isVerified
+                              ? 'bg-emerald-950/10 border-emerald-500/30 hover:border-emerald-400/50'
+                              : 'bg-slate-900 border-slate-800 hover:border-emerald-500/30'
+                          }`}
                         >
-                          <div className="min-w-0 pr-2">
-                            <span className="text-[10px] text-slate-400 block font-semibold">{soc.platform}</span>
-                            <span className="text-xs text-white font-mono truncate max-w-[220px] block group-hover:text-emerald-400">
-                              {soc.urlOrUsername}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span className="text-[10px] text-slate-400 font-semibold">{pv.platform}</span>
+                              {isVerified && (
+                                <span className="text-[9px] px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full font-bold">✔ Verified</span>
+                              )}
+                              {isUrl && (
+                                <span className="text-[9px] px-1.5 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full font-bold">🔗 URL</span>
+                              )}
+                              {pv.status === 'username_provided' && (
+                                <span className="text-[9px] px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full font-bold">@ Username</span>
+                              )}
+                              {isNotFound && (
+                                <span className="text-[9px] px-1.5 py-0.5 bg-red-500/15 text-red-400 border border-red-500/20 rounded-full font-bold">❌ Tidak Ditemukan</span>
+                              )}
+                            </div>
+                            <span className={`text-xs font-mono truncate block max-w-[200px] ${
+                              isNotFound ? 'text-red-300 line-through opacity-60' : 'text-white group-hover:text-emerald-400'
+                            }`}>
+                              {pv.urlOrUsername}
                             </span>
+                            {isNotFound && (
+                              <p className="text-[10px] text-red-400 mt-1 leading-relaxed">
+                                Profil dengan username &ldquo;{pv.urlOrUsername}&rdquo; tidak berhasil ditemukan di {pv.platform}. Silakan verifikasi manual di aplikasi {pv.platform} langsung.
+                              </p>
+                            )}
                           </div>
-                          <a
-                            href={linkHref}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="p-1 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-colors shrink-0"
-                            title={`Buka ${soc.platform}`}
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                          </a>
+
+                          {/* Action button */}
+                          {!isNotFound ? (
+                            <a
+                              href={pv.resolvedUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-colors shrink-0 mt-0.5"
+                              title={`Buka ${pv.platform}`}
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
+                          ) : (
+                            <div className="p-1.5 shrink-0 mt-0.5">
+                              <AlertTriangle className="w-4 h-4 text-red-400" />
+                            </div>
+                          )}
                         </div>
                       );
                     })
                   ) : (
-                    <>
-                      {biodata?.socials?.linkedin && (
-                        <a
-                          href={biodata.socials.linkedin.startsWith('http') ? biodata.socials.linkedin : `https://${biodata.socials.linkedin}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/40 transition-colors flex items-center justify-between group"
-                        >
-                          <div>
-                            <span className="text-[10px] text-slate-400 block font-semibold">LinkedIn Profile</span>
-                            <span className="text-xs text-white font-mono truncate max-w-[200px] block group-hover:text-emerald-400">
-                              {biodata.socials.linkedin}
-                            </span>
-                          </div>
-                          <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-emerald-400" />
-                        </a>
-                      )}
+                    /* Fallback: pakai customLinks biasa jika platformsVerified belum ada */
+                    biodata?.socials?.customLinks && biodata.socials.customLinks.length > 0 ? (
+                      biodata.socials.customLinks
+                        .filter(soc => soc.urlOrUsername.trim())
+                        .map((soc, idx) => {
+                          const isUrl = soc.urlOrUsername.startsWith('http');
+                          const platformLower = soc.platform.toLowerCase();
+                          const baseUrls: Record<string, string> = {
+                            'linkedin': 'https://linkedin.com/in/',
+                            'github': 'https://github.com/',
+                            'instagram': 'https://www.instagram.com/',
+                            'tiktok': 'https://www.tiktok.com/@',
+                            'facebook': 'https://facebook.com/',
+                            'twitter (x)': 'https://x.com/',
+                            'youtube': 'https://www.youtube.com/@',
+                          };
+                          const clean = soc.urlOrUsername.replace(/^@/, '');
+                          const linkHref = isUrl ? soc.urlOrUsername : (baseUrls[platformLower] ? `${baseUrls[platformLower]}${clean}` : `https://${clean}`);
 
-                      {biodata?.socials?.github && (
-                        <a
-                          href={biodata.socials.github.startsWith('http') ? biodata.socials.github : `https://${biodata.socials.github}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/40 transition-colors flex items-center justify-between group"
-                        >
-                          <div>
-                            <span className="text-[10px] text-slate-400 block font-semibold">GitHub / Repository</span>
-                            <span className="text-xs text-white font-mono truncate max-w-[200px] block group-hover:text-emerald-400">
-                              {biodata.socials.github}
-                            </span>
-                          </div>
-                          <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-emerald-400" />
-                        </a>
-                      )}
-
-                      {biodata?.socials?.instagram && (
-                        <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between">
-                          <div>
-                            <span className="text-[10px] text-slate-400 block font-semibold">Instagram / X</span>
-                            <span className="text-xs text-white font-mono">{biodata.socials.instagram}</span>
-                          </div>
-                          <Globe className="w-4 h-4 text-slate-500" />
-                        </div>
-                      )}
-                    </>
+                          return (
+                            <div key={idx} className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/40 transition-colors flex items-center justify-between group">
+                              <div className="min-w-0 pr-2">
+                                <span className="text-[10px] text-slate-400 block font-semibold">{soc.platform}</span>
+                                <span className="text-xs text-white font-mono truncate max-w-[220px] block group-hover:text-emerald-400">
+                                  {soc.urlOrUsername}
+                                </span>
+                              </div>
+                              <a href={linkHref} target="_blank" rel="noreferrer"
+                                className="p-1 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-colors shrink-0">
+                                <ExternalLink className="w-4 h-4" />
+                              </a>
+                            </div>
+                          );
+                        })
+                    ) : (
+                      <p className="col-span-2 text-slate-500 text-xs text-center py-4">Tidak ada tautan sosial media yang dicantumkan.</p>
+                    )
                   )}
-
                 </div>
               </div>
+
+
+
+              {/* GitHub Real Stats Card */}
+              {bgReport?.githubStats && (
+                <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-white flex items-center gap-2 text-xs">
+                      <GitBranch className="w-4 h-4 text-emerald-400" />
+                      <span>GitHub — Data Real dari API</span>
+                    </h4>
+                    <span className="text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full font-bold">
+                      ✦ Verified Live Data
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-center">
+                      <GitBranch className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
+                      <div className="text-xl font-black text-white">{bgReport.githubStats.publicRepos}</div>
+                      <div className="text-[10px] text-slate-400">Repo Publik</div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-center">
+                      <Star className="w-4 h-4 text-amber-400 mx-auto mb-1" />
+                      <div className="text-xl font-black text-white">{bgReport.githubStats.totalStars}</div>
+                      <div className="text-[10px] text-slate-400">Total Stars</div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-center">
+                      <Users className="w-4 h-4 text-blue-400 mx-auto mb-1" />
+                      <div className="text-xl font-black text-white">{bgReport.githubStats.followers}</div>
+                      <div className="text-[10px] text-slate-400">Followers</div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-center">
+                      <Activity className="w-4 h-4 text-violet-400 mx-auto mb-1" />
+                      <div className="text-[11px] font-black text-white">
+                        {bgReport.githubStats.lastActive
+                          ? new Date(bgReport.githubStats.lastActive).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' })
+                          : 'N/A'}
+                      </div>
+                      <div className="text-[10px] text-slate-400">Push Terakhir</div>
+                    </div>
+                  </div>
+
+                  {bgReport.githubStats.topLanguages.length > 0 && (
+                    <div className="pt-2 border-t border-slate-800">
+                      <span className="text-[10px] text-slate-500 font-semibold block mb-2">BAHASA PEMROGRAMAN DOMINAN (berdasarkan repo):</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {bgReport.githubStats.topLanguages.map((lang, i) => (
+                          <span key={i} className="px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold flex items-center gap-1">
+                            <Code2 className="w-3 h-3" />
+                            {lang}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {bgReport.githubStats.bio && (
+                    <div className="pt-2 border-t border-slate-800 text-xs">
+                      <span className="text-[10px] text-slate-500 font-semibold block mb-1">BIO GITHUB:</span>
+                      <p className="text-slate-300 italic">&ldquo;{bgReport.githubStats.bio}&rdquo;</p>
+                    </div>
+                  )}
+
+                  <a
+                    href={bgReport.githubStats.profileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 text-slate-300 hover:text-emerald-400 transition-colors text-xs font-semibold"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Buka Profil GitHub @{bgReport.githubStats.username}
+                  </a>
+                </div>
+              )}
+
+              {/* Name Verification Result */}
+              {bgReport?.nameVerificationResult && (
+                <div className={`p-4 rounded-2xl border space-y-2 text-xs ${
+                  bgReport.nameVerificationResult.nameFoundInCv
+                    ? 'bg-emerald-950/20 border-emerald-500/30'
+                    : 'bg-red-950/20 border-red-500/30'
+                }`}>
+                  <h4 className={`font-bold flex items-center gap-2 text-xs ${
+                    bgReport.nameVerificationResult.nameFoundInCv ? 'text-emerald-400' : 'text-red-400'
+                  }`}>
+                    {bgReport.nameVerificationResult.nameFoundInCv
+                      ? <BadgeCheck className="w-4 h-4" />
+                      : <XCircle className="w-4 h-4" />
+                    }
+                    <span>Verifikasi Nama KTP ↔ Dokumen CV</span>
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <span className="text-[10px] text-slate-500 block">Nama di Biodata/KTP:</span>
+                      <span className="font-bold text-white">{bgReport.nameVerificationResult.nameInBiodata}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500 block">Status Verifikasi:</span>
+                      <span className={`font-bold ${bgReport.nameVerificationResult.nameFoundInCv ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {bgReport.nameVerificationResult.nameFoundInCv ? '✅ Ditemukan di CV' : '❌ Tidak Ditemukan'}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-slate-300 leading-relaxed border-t border-slate-800/60 pt-2">
+                    {bgReport.nameVerificationResult.verificationNote}
+                  </p>
+                </div>
+              )}
+
 
               {/* AI Personality & Social Media Audit Summary */}
               <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
                 <h4 className="font-bold text-emerald-400 flex items-center gap-2 text-xs">
                   <Sparkles className="w-4 h-4" />
-                  <span>Analisis AI Jejak Sosial Media & Kepribadian</span>
+                  <span>Sintesis AI — Berdasarkan Data yang Tersedia</span>
                 </h4>
 
                 <div className="space-y-3 text-xs leading-relaxed">
                   <div className="p-3 rounded-xl bg-slate-900 border border-slate-800/80">
                     <strong className="text-white block mb-1">Karakter & Profesionalitas:</strong>
                     <p className="text-slate-300">
-                      {bgReport?.personalitySummary || `${application.applicantName} menunjukkan etos kerja yang kuat, komunikasi yang konstruktif, dan rekam jejak karir yang konsisten.`}
+                      {bgReport?.personalitySummary || `${application.applicantName} memiliki profil yang tersedia untuk evaluasi lebih lanjut.`}
                     </p>
                   </div>
 
                   <div className="p-3 rounded-xl bg-slate-900 border border-slate-800/80">
-                    <strong className="text-white block mb-1">Audit Keaslian & Jejak Online:</strong>
+                    <strong className="text-white block mb-1">Ringkasan Jejak Digital:</strong>
                     <p className="text-slate-300">
-                      {bgReport?.socialMediaPresenceSummary || 'Jejak digital di LinkedIn dan media sosial terverifikasi aktif, transparan, dan tidak ditemukan anomali perilaku.'}
+                      {bgReport?.socialMediaPresenceSummary || 'Tautan sosial media yang dicantumkan perlu diverifikasi manual oleh HR.'}
                     </p>
                   </div>
                 </div>
@@ -558,9 +711,7 @@ export default function CandidateDetailModal({
                   </h4>
                   <ul className="space-y-1.5 text-slate-300 text-xs">
                     {(bgReport?.greenFlags || [
-                      'Profil LinkedIn dan GitHub konsisten dengan CV',
-                      'Latar belakang pendidikan resmi terverifikasi',
-                      'Komunikasi publik etis dan berorientasi profesional'
+                      'Data profil tersedia untuk evaluasi'
                     ]).map((gf, i) => (
                       <li key={i} className="flex items-start gap-2">
                         <span className="text-emerald-400 mt-0.5">✔</span>
@@ -577,7 +728,7 @@ export default function CandidateDetailModal({
                   </h4>
                   <ul className="space-y-1.5 text-slate-400 text-xs">
                     {(bgReport?.redFlags || [
-                      'Tidak ditemukan anomali atau catatan negatif pada seluruh kanal media sosial publik.'
+                      'Tidak ditemukan catatan negatif berdasarkan data yang tersedia.'
                     ]).map((rf, i) => (
                       <li key={i} className="flex items-start gap-2">
                         <span className="text-amber-400 mt-0.5">•</span>
@@ -592,7 +743,7 @@ export default function CandidateDetailModal({
               <div className="p-4 rounded-2xl bg-amber-950/20 border border-amber-500/30 space-y-1 text-xs">
                 <span className="font-bold text-amber-400 block">Catatan Rahasia Evaluator AI untuk HR:</span>
                 <p className="text-slate-300 leading-relaxed">
-                  {bgReport?.hrDiscretionNotes || 'Kandidat memiliki integritas digital sangat prima. Sangat direkomendasikan untuk proses wawancara tatap muka.'}
+                  {bgReport?.hrDiscretionNotes || 'Lakukan verifikasi manual terhadap semua tautan sosial media yang dicantumkan kandidat.'}
                 </p>
               </div>
 

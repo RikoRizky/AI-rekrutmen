@@ -9,7 +9,7 @@ import {
   initializeStorage,
   getDefaultUserAvatar
 } from '@/lib/storage';
-import { analyzeCandidateBackgroundWithAi } from '@/lib/ai-background-evaluator';
+import { analyzeCandidateBackgroundViaServer } from '@/lib/ai-background-evaluator-client';
 import DocumentUploader from '@/components/DocumentUploader';
 import Link from 'next/link';
 import {
@@ -75,6 +75,7 @@ function ProfileContent() {
 
   // Form State - Biodata
   const [fullName, setFullName] = useState('');
+  const [gender, setGender] = useState<'Laki-laki' | 'Perempuan' | ''>('');
   const [phone, setPhone] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [birthPlace, setBirthPlace] = useState('');
@@ -123,6 +124,7 @@ function ProfileContent() {
 
     // Populate existing values if available
     setFullName(user.biodata?.fullName || user.name || '');
+    setGender((user.biodata?.gender as 'Laki-laki' | 'Perempuan' | '') || '');
     setPhone(user.biodata?.phone || user.phone || '');
     setBirthDate(user.biodata?.birthDate || '');
     setBirthPlace(user.biodata?.birthPlace || '');
@@ -253,7 +255,9 @@ function ProfileContent() {
 
       const rawBiodata: UserBiodata = {
         fullName: fullName.trim(),
+        gender: gender || undefined,
         phone: phone.trim(),
+
         birthDate: birthDate.trim(),
         birthPlace: birthPlace.trim(),
         address: address.trim(),
@@ -280,7 +284,7 @@ function ProfileContent() {
       };
 
       // Background AI screener evaluates data silently for HR
-      const aiReport = await analyzeCandidateBackgroundWithAi(rawBiodata);
+      const aiReport = await analyzeCandidateBackgroundViaServer(rawBiodata);
       rawBiodata.aiBackgroundReport = aiReport;
 
       updateUserBiodata(currentUser.id, rawBiodata, avatarUrl);
@@ -547,6 +551,29 @@ function ProfileContent() {
                 />
               </div>
               <p className="text-[11px] text-slate-500">Nomor ini akan otomatis terisi saat Anda mengirim lamaran ke lowongan kerja.</p>
+            </div>
+
+            {/* Nama Lengkap field is above, then gender selector below */}
+
+            {/* Jenis Kelamin */}
+            <div className="space-y-1.5 sm:col-span-2">
+              <label className="font-semibold text-slate-300">Jenis Kelamin: *</label>
+              <div className="flex gap-3">
+                {(['Laki-laki', 'Perempuan'] as const).map((g) => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setGender(g)}
+                    className={`flex-1 py-2.5 px-4 rounded-xl border font-semibold text-sm transition-all ${
+                      gender === g
+                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 shadow-lg shadow-emerald-950/30'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-600 hover:text-slate-200'
+                    }`}
+                  >
+                    {g === 'Laki-laki' ? '♂ Laki-laki' : '♀ Perempuan'}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-1.5">

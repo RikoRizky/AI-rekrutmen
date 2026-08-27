@@ -177,7 +177,7 @@ ${job.requirements.map(r => `- ${r}`).join('\n')}
 ${job.responsibilities && job.responsibilities.length > 0 ? `Tanggung Jawab Utama:\n${job.responsibilities.map(resp => `- ${resp}`).join('\n')}` : ''}
 
 === DATA PELAMAR ===
-Nama: ${applicantName}
+Nama Resmi (sesuai KTP/Biodata): ${applicantName}
 Headline: ${applicantHeadline || 'Tidak dicantumkan'}
 
 === BERKAS DOKUMEN ASLI PELAMAR (CV, SURAT LAMARAN, SERTIFIKAT, PORTOFOLIO) ===
@@ -215,7 +215,11 @@ ${documentsText}
       "context": "Alasan mengapa pertanyaan ini diajukan berdasarkan CV kandidat",
       "targetCriteria": "Hal-hal yang diharapkan dijawab oleh kandidat untuk membuktikan kompetensinya"
     }
-12. Tulis "riskFactors" (poin potensi risiko jika ada, misalnya sering berpindah kerja < 6 bulan, gap karir, atau overqualified/underqualified; jika tidak ada beri array kosong []).
+12. VERIFIKASI NAMA — WAJIB: Cari nama "${applicantName}" (atau variasi singkatannya) di dalam teks dokumen yang diberikan.
+    - Jika nama ditemukan: tambahkan ke "riskFactors" catatan positif seperti "Nama di CV konsisten dengan nama resmi yang didaftarkan."
+    - Jika nama TIDAK ditemukan atau berbeda: WAJIB tambahkan ke "riskFactors" peringatan seperti "PERHATIAN: Nama '${applicantName}' yang terdaftar di sistem tidak ditemukan dalam dokumen CV — perlu klarifikasi identitas kandidat."
+    - Jika dokumen tidak ada: tambahkan "Tidak ada dokumen CV yang diunggah untuk verifikasi nama."
+13. Tulis "riskFactors" (poin potensi risiko jika ada, misalnya sering berpindah kerja < 6 bulan, gap karir, overqualified/underqualified, atau inkonsistensi nama; jika benar-benar tidak ada beri array kosong []).
 
 KEMBALIKAN HANYA JSON MURNI YANG VALID (Valid JSON Object) TANPA MARKDOWN BACKTICKS ATAU PENJELASAN LAIN DI LUAR JSON. Format JSON:
 {

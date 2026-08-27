@@ -533,7 +533,7 @@ export default function CompanyPortalPage() {
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-semibold border border-slate-800 transition-colors"
           >
             <ArrowLeft className="w-4 h-4 text-emerald-400" />
-            <span>&larr; Kembali ke Daftar Lowongan Perusahaan</span>
+            <span>Kembali ke Daftar Lowongan Perusahaan</span>
           </button>
 
           {/* Selected Job Header Summary */}

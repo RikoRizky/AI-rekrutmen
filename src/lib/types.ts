@@ -18,6 +18,39 @@ export interface SocialMediaProfiles {
   additionalBio?: string;
 }
 
+export interface GitHubStats {
+  username: string;
+  name?: string;
+  bio?: string;
+  publicRepos: number;
+  followers: number;
+  following: number;
+  totalStars: number;
+  topLanguages: string[];
+  lastActive?: string; // ISO date of last push
+  profileUrl: string;
+  avatarUrl?: string;
+  fetchedAt: string;
+}
+
+export interface PlatformVerification {
+  platform: string;
+  urlOrUsername: string;
+  resolvedUrl: string;
+  // verified_public = berhasil dikonfirmasi ada (200)
+  // url_provided = user kasih full URL, diasumsikan valid
+  // username_provided = hanya username, sudah diubah ke URL tapi belum dicek
+  // not_found = dicek tapi 404 / tidak ditemukan
+  status: 'verified_public' | 'username_provided' | 'url_provided' | 'not_found';
+}
+
+export interface NameVerificationResult {
+  nameInBiodata: string;       // nama dari KTP / biodata resmi
+  nameFoundInCv: boolean;      // apakah nama tersebut ditemukan di teks dokumen CV
+  nameVariantsFound: string[]; // variasi nama yang ditemukan di CV (misal "Riko R." atau "Riko Rizky")
+  verificationNote: string;    // catatan hasil verifikasi
+}
+
 export interface AiBackgroundReport {
   personalitySummary: string;
   digitalFootprintScore: number; // 0 - 100
@@ -26,11 +59,16 @@ export interface AiBackgroundReport {
   greenFlags: string[];
   redFlags: string[];
   hrDiscretionNotes: string;
+  // Real data fields (bukan karangan AI)
+  githubStats?: GitHubStats;
+  platformsVerified?: PlatformVerification[];
+  nameVerificationResult?: NameVerificationResult;
   generatedAt: string;
 }
 
 export interface UserBiodata {
   fullName: string;
+  gender?: 'Laki-laki' | 'Perempuan' | string;
   phone?: string;
   birthDate?: string;
   birthPlace?: string;
