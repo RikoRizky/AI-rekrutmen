@@ -25,6 +25,7 @@ export default function UserApplicationsPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [myApplications, setMyApplications] = useState<Application[]>([]);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
+  const [sortBy, setSortBy] = useState<'highest_score' | 'newest' | 'status'>('highest_score');
 
   useEffect(() => {
     initializeStorage();
@@ -33,11 +34,13 @@ export default function UserApplicationsPage() {
       setCurrentUser(user);
       if (user) {
         const apps = getAllApplications();
-        const matched = apps.filter(
-          (a) =>
-            a.userId === user.id ||
-            a.applicantEmail.toLowerCase() === user.email.toLowerCase()
-        );
+        const matched = apps
+          .filter(
+            (a) =>
+              a.userId === user.id ||
+              a.applicantEmail.toLowerCase() === user.email.toLowerCase()
+          )
+          .sort((a, b) => (b.aiEvaluation?.overallScore ?? 0) - (a.aiEvaluation?.overallScore ?? 0));
         setMyApplications(matched);
       }
     };
@@ -46,6 +49,28 @@ export default function UserApplicationsPage() {
     window.addEventListener(REFRESH_EVENT, loadData);
     return () => window.removeEventListener(REFRESH_EVENT, loadData);
   }, []);
+
+  const sortedApplications = [...myApplications].sort((a, b) => {
+    if (sortBy === 'highest_score') {
+      const scoreDiff = (b.aiEvaluation?.overallScore ?? 0) - (a.aiEvaluation?.overallScore ?? 0);
+      if (scoreDiff !== 0) return scoreDiff;
+      return new Date(b.appliedDate).getTime() - new Date(a.appliedDate).getTime();
+    }
+    if (sortBy === 'newest') {
+      return new Date(b.appliedDate).getTime() - new Date(a.appliedDate).getTime();
+    }
+    if (sortBy === 'status') {
+      const priority: Record<string, number> = {
+        accepted: 1,
+        interview: 2,
+        screening: 3,
+        applied: 4,
+        rejected: 5
+      };
+      return (priority[a.status] || 99) - (priority[b.status] || 99);
+    }
+    return 0;
+  });
 
   const getStatusConfig = (status: Application['status']) => {
     switch (status) {
@@ -109,10 +134,59 @@ export default function UserApplicationsPage() {
         </Link>
       </div>
 
+      {/* Filter & Sort Bar */}
+      {myApplications.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-slate-900/90 border border-slate-800">
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <Sparkles className="w-4 h-4 text-emerald-400" />
+            <span>Total: <strong className="text-white">{myApplications.length} Lamaran</strong></span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 font-medium">Urutkan:</span>
+            <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+              <button
+                type="button"
+                onClick={() => setSortBy('highest_score')}
+                className={`px-3 py-1 rounded-lg font-semibold transition-all ${
+                  sortBy === 'highest_score'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                🔥 Skor AI Tertinggi
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortBy('newest')}
+                className={`px-3 py-1 rounded-lg font-semibold transition-all ${
+                  sortBy === 'newest'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                📅 Terbaru
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortBy('status')}
+                className={`px-3 py-1 rounded-lg font-semibold transition-all ${
+                  sortBy === 'status'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                🏆 Status Seleksi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Applications List */}
-      {myApplications.length > 0 ? (
+      {sortedApplications.length > 0 ? (
         <div className="space-y-4">
-          {myApplications.map((app) => {
+          {sortedApplications.map((app) => {
             const ev = app.aiEvaluation;
             const statusCfg = getStatusConfig(app.status);
             const StatusIcon = statusCfg.icon;
