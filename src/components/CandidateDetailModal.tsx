@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Application, ApplicationStatus } from '@/lib/types';
-import { updateApplicationStatus, getCurrentUser, getDefaultUserAvatar, repairApplicationEvaluation } from '@/lib/storage';
+import { updateApplicationStatus, getCurrentUser, getAllUsers, getDefaultUserAvatar, repairApplicationEvaluation } from '@/lib/storage';
 import AiAnalysisRadar from './AiAnalysisRadar';
 import AiScoreBadge from './AiScoreBadge';
 import {
@@ -71,6 +71,18 @@ export default function CandidateDetailModal({
     ? currentUser.biodata.documents
     : [];
 
+  // Resolve candidate avatar from user profile/biodata or fallback to default
+  const allUsers = getAllUsers();
+  const matchedUser = allUsers.find(
+    (u) =>
+      u.id === application.userId ||
+      (application.applicantEmail && u.email.toLowerCase() === application.applicantEmail.toLowerCase())
+  );
+  const applicantAvatar =
+    matchedUser?.avatar ||
+    (currentUser && (currentUser.id === application.userId || currentUser.email.toLowerCase() === application.applicantEmail?.toLowerCase()) ? currentUser.avatar : null) ||
+    getDefaultUserAvatar(application.applicantName || 'Pelamar');
+
   const handleUpdateStatus = (newStatus: ApplicationStatus) => {
     setIsSaving(true);
     setCurrentStatus(newStatus);
@@ -104,7 +116,7 @@ export default function CandidateDetailModal({
           <div className="flex items-start gap-4">
             <div className="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
               <img
-                src={getDefaultUserAvatar(application.applicantName)}
+                src={applicantAvatar}
                 alt={application.applicantName}
                 className="w-full h-full object-cover"
               />
