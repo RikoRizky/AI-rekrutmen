@@ -9,6 +9,7 @@ import {
   getAllJobs,
   getAllApplications,
   submitApplication,
+  updateUserBiodata,
   getCompanyScaleCategory,
   REFRESH_EVENT
 } from '@/lib/storage';
@@ -64,15 +65,25 @@ function RecommendationsContent() {
     }
     setCurrentUser(user);
 
-    const userDocs = user.biodata?.documents || [];
-    setDocuments(userDocs);
-
     // Existing applied jobs
     const existingApps = getAllApplications().filter(
       (a) => a.userId === user.id || a.applicantEmail.toLowerCase() === user.email.toLowerCase()
     );
     const appliedIds = existingApps.map((a) => a.jobId);
     setAppliedJobIds(appliedIds);
+
+    // Resolve candidate documents: from user biodata OR past applications
+    let userDocs = user.biodata?.documents && user.biodata.documents.length > 0 ? user.biodata.documents : [];
+    if (userDocs.length === 0) {
+      const prevAppWithDocs = existingApps.find((a) => a.documents && a.documents.length > 0);
+      if (prevAppWithDocs?.documents) {
+        userDocs = prevAppWithDocs.documents;
+        if (user.biodata) {
+          updateUserBiodata(user.id, { ...user.biodata, documents: userDocs });
+        }
+      }
+    }
+    setDocuments(userDocs);
 
     // Run AI Match calculation
     runMatch(user, userDocs, appliedIds, existingApps);
@@ -110,7 +121,21 @@ function RecommendationsContent() {
     if (!currentUser) return;
     const targetJob = rec.job;
 
-    const cvDoc = documents.find((d) => d.type === 'cv');
+    // Resolve effective documents for application
+    let effectiveDocs = documents && documents.length > 0 ? documents : (currentUser.biodata?.documents || []);
+    if (effectiveDocs.length === 0) {
+      const allApps = getAllApplications();
+      const prevApp = allApps.find(
+        (a) => (a.userId === currentUser.id || a.applicantEmail.toLowerCase() === currentUser.email.toLowerCase()) &&
+          a.documents && a.documents.length > 0
+      );
+      if (prevApp?.documents) {
+        effectiveDocs = prevApp.documents;
+        setDocuments(effectiveDocs);
+      }
+    }
+
+    const cvDoc = effectiveDocs.find((d) => d.type === 'cv') || effectiveDocs[0];
     if (!cvDoc) {
       alert('Harap unggah berkas CV / Resume Anda di halaman Profil terlebih dahulu sebelum mengirim lamaran.');
       router.push('/user/profile');
@@ -124,7 +149,7 @@ function RecommendationsContent() {
       // 1. Run AI Applicant Screening
       const aiEvaluation = await evaluateApplicantWithAi({
         job: targetJob,
-        documents,
+        documents: effectiveDocs,
         applicantName: currentUser.biodata?.fullName || currentUser.name,
         applicantHeadline: currentUser.headline || `${currentUser.biodata?.lastEducation || 'S1'} ${currentUser.biodata?.educationMajor || ''}`
       });
@@ -141,8 +166,8 @@ function RecommendationsContent() {
         applicantEmail: currentUser.email,
         applicantPhone: currentUser.biodata?.phone || currentUser.phone || '',
         applicantHeadline: currentUser.headline || `${currentUser.biodata?.lastEducation || 'S1'} ${currentUser.biodata?.educationMajor || ''}`,
-        applicantBiodata: currentUser.biodata,
-        documents,
+        applicantBiodata: currentUser.biodata ? { ...currentUser.biodata, documents: effectiveDocs } : currentUser.biodata,
+        documents: effectiveDocs,
         aiEvaluation,
         status: 'applied'
       });

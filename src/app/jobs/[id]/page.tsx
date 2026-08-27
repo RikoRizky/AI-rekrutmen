@@ -83,6 +83,19 @@ export default function JobDetailPage() {
       );
       if (match) {
         setExistingApplication(repairApplicationEvaluation(match));
+      } else {
+        // Pre-fill documents from user profile or past applications if available
+        if (user.biodata?.documents && user.biodata.documents.length > 0) {
+          setDocuments(user.biodata.documents);
+        } else {
+          const prevApp = apps.find(
+            (a) => (a.userId === user.id || a.applicantEmail.toLowerCase() === user.email.toLowerCase()) &&
+              a.documents && a.documents.length > 0
+          );
+          if (prevApp?.documents) {
+            setDocuments(prevApp.documents);
+          }
+        }
       }
     }
   }, [jobId]);

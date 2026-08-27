@@ -752,8 +752,26 @@ export function deleteJob(id: string): boolean {
 // --- APPLICATIONS ---
 
 export function repairApplicationEvaluation(app: Application): Application {
-  if (app && app.aiEvaluation && typeof app.aiEvaluation.overallScore === 'number' && app.aiEvaluation.overallScore > 0) {
-    return app;
+  let docs = app.documents && Array.isArray(app.documents) && app.documents.length > 0 ? app.documents : [];
+  
+  if (docs.length === 0) {
+    if (app.applicantBiodata?.documents && app.applicantBiodata.documents.length > 0) {
+      docs = app.applicantBiodata.documents;
+    } else {
+      const user = getAllUsers().find((u) => u.id === app.userId || u.email.toLowerCase() === app.applicantEmail?.toLowerCase());
+      if (user?.biodata?.documents && user.biodata.documents.length > 0) {
+        docs = user.biodata.documents;
+      }
+    }
+  }
+
+  const repairedApp: Application = {
+    ...app,
+    documents: docs
+  };
+
+  if (repairedApp.aiEvaluation && typeof repairedApp.aiEvaluation.overallScore === 'number' && repairedApp.aiEvaluation.overallScore > 0) {
+    return repairedApp;
   }
 
   const jobs = getAllJobs();
@@ -781,11 +799,11 @@ export function repairApplicationEvaluation(app: Application): Application {
     dummyJob,
     app.applicantName || 'Pelamar',
     app.applicantHeadline || '',
-    app.documents || []
+    docs
   );
 
   return {
-    ...app,
+    ...repairedApp,
     aiEvaluation: evalResult
   };
 }
@@ -800,7 +818,9 @@ export function getAllApplications(): Application[] {
     const rawApps: Application[] = JSON.parse(stored);
     let hasRepaired = false;
     const repairedApps = rawApps.map((app) => {
-      if (!app.aiEvaluation || typeof app.aiEvaluation.overallScore !== 'number' || app.aiEvaluation.overallScore === 0) {
+      const needsScoreRepair = !app.aiEvaluation || typeof app.aiEvaluation.overallScore !== 'number' || app.aiEvaluation.overallScore === 0;
+      const needsDocRepair = !app.documents || app.documents.length === 0;
+      if (needsScoreRepair || needsDocRepair) {
         hasRepaired = true;
         return repairApplicationEvaluation(app);
       }
@@ -865,17 +885,47 @@ export function submitApplication(
   applicationData: Omit<Application, 'id' | 'appliedDate' | 'status'> & { status?: ApplicationStatus }
 ): Application {
   const applications = getAllApplications();
+  const users = getAllUsers();
   
   let applicantBiodata = applicationData.applicantBiodata;
-  if (!applicantBiodata && applicationData.userId) {
-    const user = getAllUsers().find((u) => u.id === applicationData.userId);
-    if (user && user.biodata) {
-      applicantBiodata = user.biodata;
+  let user = applicationData.userId ? users.find((u) => u.id === applicationData.userId) : null;
+  if (!user && applicationData.applicantEmail) {
+    user = users.find((u) => u.email.toLowerCase() === applicationData.applicantEmail.toLowerCase()) || null;
+  }
+
+  if (!applicantBiodata && user && user.biodata) {
+    applicantBiodata = user.biodata;
+  }
+
+  // Resolve documents: ensure documents are never empty if candidate has uploaded them anywhere
+  let docs = applicationData.documents && Array.isArray(applicationData.documents) && applicationData.documents.length > 0
+    ? applicationData.documents
+    : [];
+
+  if (docs.length === 0) {
+    if (applicantBiodata?.documents && applicantBiodata.documents.length > 0) {
+      docs = applicantBiodata.documents;
+    } else if (user?.biodata?.documents && user.biodata.documents.length > 0) {
+      docs = user.biodata.documents;
+    } else {
+      const prevApp = applications.find(
+        (a) => (a.userId === applicationData.userId || a.applicantEmail.toLowerCase() === applicationData.applicantEmail.toLowerCase()) &&
+          a.documents && a.documents.length > 0
+      );
+      if (prevApp?.documents) {
+        docs = prevApp.documents;
+      }
     }
+  }
+
+  // Sync back to user's biodata if user biodata currently lacks documents
+  if (docs.length > 0 && user && user.biodata && (!user.biodata.documents || user.biodata.documents.length === 0)) {
+    updateUserBiodata(user.id, { ...user.biodata, documents: docs });
   }
 
   const newApplication: Application = {
     ...applicationData,
+    documents: docs,
     applicantBiodata,
     id: `app-${Date.now()}`,
     appliedDate: new Date().toISOString(),

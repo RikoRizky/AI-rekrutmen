@@ -62,6 +62,15 @@ export default function CandidateDetailModal({
   const biodata = application.applicantBiodata;
   const bgReport = biodata?.aiBackgroundReport;
 
+  // Resolve candidate documents across application, biodata, and user profile
+  const candidateDocs = (application.documents && Array.isArray(application.documents) && application.documents.length > 0)
+    ? application.documents
+    : (biodata?.documents && Array.isArray(biodata.documents) && biodata.documents.length > 0)
+    ? biodata.documents
+    : (currentUser?.biodata?.documents && (application.userId === currentUser.id || application.applicantEmail?.toLowerCase() === currentUser.email?.toLowerCase()))
+    ? currentUser.biodata.documents
+    : [];
+
   const handleUpdateStatus = (newStatus: ApplicationStatus) => {
     setIsSaving(true);
     setCurrentStatus(newStatus);
@@ -196,7 +205,7 @@ export default function CandidateDetailModal({
               <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
                 activeTab === 'documents' ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300'
               }`}>
-                {application.documents?.length || 0}
+                {candidateDocs.length}
               </span>
             </button>
 
@@ -620,12 +629,13 @@ export default function CandidateDetailModal({
                   </p>
                 </div>
                 <span className="text-[11px] text-slate-400 font-mono bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
-                  {application.documents?.length || 0} Berkas Terlampir
+                  {candidateDocs.length} Berkas Terlampir
                 </span>
               </div>
 
               <div className="space-y-4">
-                {application.documents?.map((doc) => {
+                {candidateDocs.length > 0 ? (
+                  candidateDocs.map((doc) => {
                   const isCopied = copiedDocId === doc.id;
                   const charCount = doc.extractedText?.length || 0;
 
@@ -693,7 +703,16 @@ export default function CandidateDetailModal({
                       </div>
                     </div>
                   );
-                })}
+                })
+              ) : (
+                <div className="p-8 rounded-2xl bg-slate-950 border border-slate-800 text-center space-y-2">
+                  <FileText className="w-8 h-8 text-slate-600 mx-auto" />
+                  <p className="text-xs text-slate-400 font-semibold">Belum Ada Dokumen Terlampir</p>
+                  <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                    Kandidat belum melampirkan berkas dokumen digital pada saat mengirimkan lamaran ini.
+                  </p>
+                </div>
+              )}
               </div>
             </div>
           )}
