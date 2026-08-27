@@ -1,5 +1,4 @@
-import { Job, DocumentAttachment, UserBiodata, User } from './types';
-import { evaluateApplicantWithAi } from './ai-evaluator';
+import { Job, DocumentAttachment, UserBiodata, User, Application, FitLevel } from './types';
 
 export interface JobMatchRecommendation {
   job: Job;
@@ -16,6 +15,7 @@ export interface CalculateJobMatchesParams {
   documents: DocumentAttachment[];
   biodata?: UserBiodata;
   user: User;
+  existingApplications?: Application[];
   existingAppliedJobIds?: string[];
 }
 
@@ -33,13 +33,25 @@ function getEduRank(eduStr?: string | null): number {
 }
 
 /**
+ * Maps numeric AI score to human-readable recommendation level
+ */
+export function mapScoreToMatchLevel(score: number): 'Sangat Cocok' | 'Cocok' | 'Potensial' | 'Cukup' {
+  if (score >= 85) return 'Sangat Cocok';
+  if (score >= 70) return 'Cocok';
+  if (score >= 50) return 'Potensial';
+  return 'Cukup';
+}
+
+/**
  * Calculates AI Compatibility Match Score across multiple jobs for uploaded candidate documents.
+ * Prioritizes actual stored AI screening evaluation if candidate has already applied to ensure 100% consistency.
  */
 export async function calculateJobRecommendations({
   jobs,
   documents,
   biodata,
   user,
+  existingApplications = [],
   existingAppliedJobIds = []
 }: CalculateJobMatchesParams): Promise<JobMatchRecommendation[]> {
   const cvDoc = documents.find((d) => d.type === 'cv');
@@ -58,10 +70,19 @@ export async function calculateJobRecommendations({
 
   const userEduRank = getEduRank(biodata?.lastEducation || 'S1');
 
+  // Extract candidate experience years from text
+  const yearMatches = combinedCandidateText.match(/(\d+)[\s+]*(?:tahun|thn|years|yrs)/gi) || [];
+  let maxYearsFound = 0;
+  for (const ym of yearMatches) {
+    const num = parseInt(ym, 10);
+    if (!isNaN(num) && num > maxYearsFound && num <= 40) {
+      maxYearsFound = num;
+    }
+  }
+
   const results: JobMatchRecommendation[] = [];
 
   for (const job of jobs) {
-    const jobEduRank = getEduRank(job.minEducation);
     const keySkills = job.keySkills || [];
     const matchedSkills: string[] = [];
     const missingSkills: string[] = [];
@@ -76,56 +97,121 @@ export async function calculateJobRecommendations({
       }
     }
 
-    // Skill Score (0-60 points)
-    const skillRatio = keySkills.length > 0 ? matchedSkills.length / keySkills.length : 0.8;
-    let skillScore = skillRatio * 60;
+    // Check if the user has an existing application with an actual AI evaluation
+    const existingApp = existingApplications.find((a) => a.jobId === job.id);
+    const isApplied = Boolean(existingApp) || existingAppliedJobIds.includes(job.id);
 
-    // Requirement keyword match (0-20 points)
-    let reqMatches = 0;
-    const requirements = job.requirements || [];
-    for (const req of requirements) {
-      const words = req.toLowerCase().split(/\s+/).filter((w) => w.length > 4);
-      const hasWord = words.some((w) => combinedCandidateText.includes(w));
-      if (hasWord) reqMatches++;
+    if (existingApp && existingApp.aiEvaluation && typeof existingApp.aiEvaluation.overallScore === 'number' && existingApp.aiEvaluation.overallScore > 0) {
+      const evalData = existingApp.aiEvaluation;
+      const appScore = evalData.overallScore;
+      const matchLevel = mapScoreToMatchLevel(appScore);
+
+      let reason = evalData.recommendationReason || evalData.executiveSummary || '';
+      if (!reason) {
+        if (matchedSkills.length > 0) {
+          reason = `Keahlian Anda dalam ${matchedSkills.slice(0, 3).join(', ')} sangat sesuai dengan kebutuhan posisi ${job.title} di ${job.companyName}.`;
+        } else {
+          reason = `Latar belakang pengalaman dan berkas lamaran Anda selaras dengan kriteria posisi ini di ${job.companyName}.`;
+        }
+      }
+
+      results.push({
+        job,
+        matchScore: appScore,
+        matchLevel,
+        matchedSkills: evalData.matchedSkills && evalData.matchedSkills.length > 0 ? evalData.matchedSkills : matchedSkills,
+        missingSkills: evalData.missingSkills && evalData.missingSkills.length > 0 ? evalData.missingSkills : missingSkills,
+        recommendationReason: reason,
+        isApplied: true
+      });
+      continue;
     }
-    const reqRatio = requirements.length > 0 ? reqMatches / requirements.length : 0.7;
-    const reqScore = reqRatio * 20;
 
-    // Education Match (0-15 points)
-    let eduScore = 15;
-    if (userEduRank < jobEduRank) {
-      eduScore = Math.max(5, 15 - (jobEduRank - userEduRank) * 5);
+    // For unapplied jobs, calculate score using standard 4-dimension model harmonious with ai-evaluator.ts
+    // 1. Technical & Skills Match (0 - 100)
+    let technicalScore = 40;
+    if (keySkills.length > 0) {
+      const ratio = matchedSkills.length / keySkills.length;
+      technicalScore = Math.round(ratio * 70 + 30);
+    } else {
+      technicalScore = 75;
     }
 
-    // Additional relevance bonus (Certificates/Cover letter) (0-5 points)
-    let bonusScore = 0;
-    if (certDocs.length > 0) bonusScore += 3;
-    if (coverLetterDoc) bonusScore += 2;
+    // 2. Experience Match (0 - 100)
+    let experienceScore = 75;
+    const expLevel = job.experienceLevel || '';
+    if (expLevel.includes('Senior') || expLevel.includes('5+')) {
+      if (maxYearsFound >= 5 || combinedCandidateText.includes('senior') || combinedCandidateText.includes('lead')) {
+        experienceScore = 92;
+      } else if (maxYearsFound >= 3 || combinedCandidateText.includes('mid-level')) {
+        experienceScore = 68;
+      } else {
+        experienceScore = 45;
+      }
+    } else if (expLevel.includes('Mid-Level') || expLevel.includes('3-5') || expLevel.includes('2-4')) {
+      if (maxYearsFound >= 3 || combinedCandidateText.includes('mid') || combinedCandidateText.includes('experienced')) {
+        experienceScore = 90;
+      } else if (maxYearsFound >= 1) {
+        experienceScore = 75;
+      } else {
+        experienceScore = 50;
+      }
+    } else {
+      experienceScore = maxYearsFound >= 1 ? 90 : 80;
+    }
 
-    let totalScore = Math.round(skillScore + reqScore + eduScore + bonusScore);
-    totalScore = Math.min(99, Math.max(35, totalScore));
+    // 3. Education Match (0 - 100)
+    const jobEduRank = getEduRank(job.minEducation);
+    let educationScore = 60;
+    const hasBachelorOrHigher = userEduRank >= 3 || combinedCandidateText.includes('s1') || combinedCandidateText.includes('sarjana') || combinedCandidateText.includes('s2') || combinedCandidateText.includes('universitas');
+    const hasCertificate = certDocs.length > 0 || combinedCandidateText.includes('sertifikat') || combinedCandidateText.includes('certified');
 
-    // Determine Level
-    let matchLevel: 'Sangat Cocok' | 'Cocok' | 'Potensial' | 'Cukup' = 'Cukup';
-    if (totalScore >= 85) matchLevel = 'Sangat Cocok';
-    else if (totalScore >= 70) matchLevel = 'Cocok';
-    else if (totalScore >= 55) matchLevel = 'Potensial';
+    if (userEduRank >= jobEduRank) {
+      if (hasBachelorOrHigher && hasCertificate) {
+        educationScore = 95;
+      } else if (hasBachelorOrHigher) {
+        educationScore = 85;
+      } else if (hasCertificate) {
+        educationScore = 75;
+      } else {
+        educationScore = 70;
+      }
+    } else {
+      educationScore = Math.max(40, 60 - (jobEduRank - userEduRank) * 15);
+    }
 
-    // Generate concise recommendation reason
+    // 4. Motivation & Documents Match (0 - 100)
+    let motivationScore = 65;
+    if (coverLetterDoc && coverLetterDoc.extractedText && coverLetterDoc.extractedText.length > 200) {
+      motivationScore = 92;
+    } else if (coverLetterDoc) {
+      motivationScore = 78;
+    }
+
+    // Aggregate Score
+    const totalScore = Math.round(
+      technicalScore * 0.35 +
+      experienceScore * 0.30 +
+      educationScore * 0.20 +
+      motivationScore * 0.15
+    );
+
+    const safeScore = Math.min(99, Math.max(35, totalScore));
+    const matchLevel = mapScoreToMatchLevel(safeScore);
+
+    // Recommendation reason
     let recommendationReason = '';
     if (matchedSkills.length > 0) {
       recommendationReason = `Keahlian Anda dalam ${matchedSkills.slice(0, 3).join(', ')} sangat sesuai dengan kebutuhan posisi ${job.title} di ${job.companyName}.`;
-    } else if (reqMatches > 0) {
+    } else if (experienceScore >= 80) {
       recommendationReason = `Latar belakang pengalaman dan kualifikasi berkas Anda selaras dengan kriteria posisi ini di ${job.companyName}.`;
     } else {
       recommendationReason = `Posisi ${job.title} di ${job.companyName} membuka kesempatan yang potensial bagi profil pendidikan Anda.`;
     }
 
-    const isApplied = existingAppliedJobIds.includes(job.id);
-
     results.push({
       job,
-      matchScore: totalScore,
+      matchScore: safeScore,
       matchLevel,
       matchedSkills,
       missingSkills,

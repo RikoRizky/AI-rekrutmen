@@ -12,8 +12,9 @@ import {
   getCompanyScaleCategory,
   REFRESH_EVENT
 } from '@/lib/storage';
-import { calculateJobRecommendations, JobMatchRecommendation } from '@/lib/ai-job-matcher';
+import { calculateJobRecommendations, JobMatchRecommendation, mapScoreToMatchLevel } from '@/lib/ai-job-matcher';
 import { evaluateApplicantWithAi } from '@/lib/ai-evaluator';
+import { Application } from '@/lib/types';
 import confetti from 'canvas-confetti';
 import Link from 'next/link';
 import {
@@ -35,7 +36,8 @@ import {
   ArrowRight,
   Filter,
   RefreshCw,
-  Search
+  Search,
+  Eye
 } from 'lucide-react';
 
 function RecommendationsContent() {
@@ -73,10 +75,10 @@ function RecommendationsContent() {
     setAppliedJobIds(appliedIds);
 
     // Run AI Match calculation
-    runMatch(user, userDocs, appliedIds);
+    runMatch(user, userDocs, appliedIds, existingApps);
   };
 
-  const runMatch = async (user: User, docs: DocumentAttachment[], appliedIds: string[]) => {
+  const runMatch = async (user: User, docs: DocumentAttachment[], appliedIds: string[], existingApps: Application[]) => {
     setIsAnalyzing(true);
     try {
       const allActiveJobs = getAllJobs().filter((j) => j.status === 'active' || !j.status);
@@ -85,6 +87,7 @@ function RecommendationsContent() {
         documents: docs,
         biodata: user.biodata,
         user,
+        existingApplications: existingApps,
         existingAppliedJobIds: appliedIds
       });
       setRecommendations(recs);
@@ -147,8 +150,24 @@ function RecommendationsContent() {
       const updatedApplied = [...appliedJobIds, targetJob.id];
       setAppliedJobIds(updatedApplied);
 
+      const score = aiEvaluation.overallScore;
+      const level = mapScoreToMatchLevel(score);
+      const reason = aiEvaluation.recommendationReason || aiEvaluation.executiveSummary || rec.recommendationReason;
+
       setRecommendations((prev) =>
-        prev.map((r) => (r.job.id === targetJob.id ? { ...r, isApplied: true } : r))
+        prev.map((r) =>
+          r.job.id === targetJob.id
+            ? {
+                ...r,
+                isApplied: true,
+                matchScore: score,
+                matchLevel: level,
+                recommendationReason: reason,
+                matchedSkills: aiEvaluation.matchedSkills && aiEvaluation.matchedSkills.length > 0 ? aiEvaluation.matchedSkills : r.matchedSkills,
+                missingSkills: aiEvaluation.missingSkills && aiEvaluation.missingSkills.length > 0 ? aiEvaluation.missingSkills : r.missingSkills
+              }
+            : r
+        )
       );
 
       // Trigger Confetti Celebration
@@ -202,7 +221,7 @@ function RecommendationsContent() {
         <div className="flex items-center gap-2.5 shrink-0">
           <button
             type="button"
-            onClick={() => currentUser && runMatch(currentUser, documents, appliedJobIds)}
+            onClick={loadData}
             disabled={isAnalyzing}
             className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-emerald-400 font-bold text-xs border border-slate-800 transition-colors"
           >
@@ -414,11 +433,10 @@ function RecommendationsContent() {
                       <div className="flex items-center gap-2">
                         <Link
                           href={`/jobs/${targetJob.id}`}
-                          target="_blank"
                           className="p-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700"
                           title="Lihat detail lengkap lowongan"
                         >
-                          <ExternalLink className="w-4 h-4" />
+                          <Eye className="w-4 h-4" />
                         </Link>
 
                         {rec.isApplied ? (

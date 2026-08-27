@@ -495,7 +495,6 @@ export default function CompanyPortalPage() {
                       <div className="flex items-center justify-between text-[11px] pt-1">
                         <Link
                           href={`/jobs/${j.id}`}
-                          target="_blank"
                           className="text-slate-400 hover:text-emerald-400 flex items-center gap-1"
                         >
                           <span>Pratinjau Loker Publik</span>
