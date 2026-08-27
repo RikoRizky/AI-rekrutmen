@@ -162,9 +162,9 @@ export default function UserApplicationsPage() {
 
                   <div className="flex items-center gap-3">
                     <AiScoreBadge
-                      score={ev.overallScore}
-                      fitLevel={ev.fitLevel}
-                      recommendation={ev.recommendation}
+                      score={ev?.overallScore ?? 0}
+                      fitLevel={ev?.fitLevel}
+                      recommendation={ev?.recommendation}
                       size="sm"
                     />
 

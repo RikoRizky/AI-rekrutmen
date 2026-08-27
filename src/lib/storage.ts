@@ -22,6 +22,7 @@ import {
   SEED_TRANSACTIONS,
   DEFAULT_SETTINGS,
 } from './seed-data';
+import { runIntelligentLocalAnalysis } from './ai-evaluator';
 
 const JOBS_KEY = 'smartrecruit_jobs';
 const APPLICATIONS_KEY = 'smartrecruit_applications';
@@ -66,7 +67,8 @@ export async function syncFromDatabase() {
       modified = true;
     }
     if (appsRes?.success && Array.isArray(appsRes.applications)) {
-      localStorage.setItem(APPLICATIONS_KEY, JSON.stringify(appsRes.applications));
+      const repaired = appsRes.applications.map(repairApplicationEvaluation);
+      localStorage.setItem(APPLICATIONS_KEY, JSON.stringify(repaired));
       modified = true;
     }
     if (usersRes?.success && Array.isArray(usersRes.users)) {
@@ -749,6 +751,45 @@ export function deleteJob(id: string): boolean {
 
 // --- APPLICATIONS ---
 
+export function repairApplicationEvaluation(app: Application): Application {
+  if (app && app.aiEvaluation && typeof app.aiEvaluation.overallScore === 'number' && app.aiEvaluation.overallScore > 0) {
+    return app;
+  }
+
+  const jobs = getAllJobs();
+  const job = jobs.find((j) => j.id === app.jobId);
+  const dummyJob: Job = job || {
+    id: app.jobId || 'job-default',
+    companyId: app.companyId || 'comp-default',
+    companyName: app.companyName || 'Perusahaan',
+    title: app.jobTitle || 'Posisi Lowongan',
+    department: app.jobDepartment || 'Engineering',
+    location: 'Jakarta',
+    type: 'Full-time',
+    experienceLevel: 'Mid-Level (3-5 thn)',
+    salaryRange: 'Kompetitif',
+    minEducation: 'S1 / Sederajat',
+    description: app.jobTitle || 'Lowongan pekerjaan',
+    requirements: ['Pengalaman di bidang terkait minimal 2 tahun', 'Keahlian teknis yang relevan'],
+    responsibilities: ['Melaksanakan tugas pekerjaan dan tanggung jawab posisi terkait'],
+    keySkills: ['Problem Solving', 'Komunikasi', 'Teamwork', 'Teknis Relevan'],
+    status: 'active',
+    createdAt: new Date().toISOString()
+  };
+
+  const evalResult = runIntelligentLocalAnalysis(
+    dummyJob,
+    app.applicantName || 'Pelamar',
+    app.applicantHeadline || '',
+    app.documents || []
+  );
+
+  return {
+    ...app,
+    aiEvaluation: evalResult
+  };
+}
+
 export function getAllApplications(): Application[] {
   if (typeof window === 'undefined') return SEED_APPLICATIONS;
   const stored = localStorage.getItem(APPLICATIONS_KEY);
@@ -756,7 +797,20 @@ export function getAllApplications(): Application[] {
     return SEED_APPLICATIONS;
   }
   try {
-    return JSON.parse(stored);
+    const rawApps: Application[] = JSON.parse(stored);
+    let hasRepaired = false;
+    const repairedApps = rawApps.map((app) => {
+      if (!app.aiEvaluation || typeof app.aiEvaluation.overallScore !== 'number' || app.aiEvaluation.overallScore === 0) {
+        hasRepaired = true;
+        return repairApplicationEvaluation(app);
+      }
+      return app;
+    });
+
+    if (hasRepaired && typeof window !== 'undefined') {
+      localStorage.setItem(APPLICATIONS_KEY, JSON.stringify(repairedApps));
+    }
+    return repairedApps;
   } catch {
     return SEED_APPLICATIONS;
   }

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Job, DocumentAttachment, User, Application } from '@/lib/types';
-import { getJobById, getCurrentUser, submitApplication, getAllApplications, initializeStorage, getJobDeadlineCountdown } from '@/lib/storage';
+import { getJobById, getCurrentUser, submitApplication, getAllApplications, initializeStorage, getJobDeadlineCountdown, repairApplicationEvaluation } from '@/lib/storage';
 import { evaluateApplicantWithAi } from '@/lib/ai-evaluator';
 import DocumentUploader from '@/components/DocumentUploader';
 import AiScoreBadge from '@/components/AiScoreBadge';
@@ -82,7 +82,7 @@ export default function JobDetailPage() {
           (a.userId === user.id || a.applicantEmail.toLowerCase() === user.email.toLowerCase())
       );
       if (match) {
-        setExistingApplication(match);
+        setExistingApplication(repairApplicationEvaluation(match));
       }
     }
   }, [jobId]);
@@ -375,7 +375,23 @@ export default function JobDetailPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400 font-medium">Skor Kesesuaian AI:</span>
                     <span className="font-black text-emerald-400 text-sm">
-                      {existingApplication.aiEvaluation?.overallScore || 0}% ({existingApplication.aiEvaluation?.recommendation || 'Kandidat Unggul'})
+                      {existingApplication.aiEvaluation?.overallScore || 0}% ({
+                        existingApplication.aiEvaluation?.fitLevel === 'Top Match'
+                          ? 'Kandidat Unggul'
+                          : existingApplication.aiEvaluation?.fitLevel === 'High Match'
+                            ? 'Sangat Sesuai'
+                            : existingApplication.aiEvaluation?.fitLevel === 'Moderate Match'
+                              ? 'Cukup Sesuai'
+                              : existingApplication.aiEvaluation?.fitLevel === 'Low Match'
+                                ? 'Belum Sesuai'
+                                : (existingApplication.aiEvaluation?.overallScore ?? 0) >= 85
+                                  ? 'Kandidat Unggul'
+                                  : (existingApplication.aiEvaluation?.overallScore ?? 0) >= 70
+                                    ? 'Sangat Sesuai'
+                                    : (existingApplication.aiEvaluation?.overallScore ?? 0) >= 50
+                                      ? 'Cukup Sesuai'
+                                      : 'Belum Sesuai'
+                      })
                     </span>
                   </div>
 

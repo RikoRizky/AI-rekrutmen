@@ -226,7 +226,7 @@ export default function CompanyPortalPage() {
     ? applications
         .filter((app) => app.jobId === selectedJob.id)
         .filter((app) => {
-          const matchFit = selectedFitLevel === 'all' || app.aiEvaluation.fitLevel === selectedFitLevel;
+          const matchFit = selectedFitLevel === 'all' || (app.aiEvaluation?.fitLevel || 'Moderate Match') === selectedFitLevel;
           const matchStatus = selectedStatus === 'all' || app.status === selectedStatus;
           const matchSearch =
             app.applicantName.toLowerCase().includes(candidateSearchQuery.toLowerCase()) ||
@@ -235,12 +235,12 @@ export default function CompanyPortalPage() {
 
           return matchFit && matchStatus && matchSearch;
         })
-        .sort((a, b) => b.aiEvaluation.overallScore - a.aiEvaluation.overallScore)
+        .sort((a, b) => (b.aiEvaluation?.overallScore ?? 0) - (a.aiEvaluation?.overallScore ?? 0))
     : [];
 
   // Statistics
   const totalApplicantsCount = applications.length;
-  const topMatchCount = applications.filter((a) => a.aiEvaluation.overallScore >= 85).length;
+  const topMatchCount = applications.filter((a) => (a.aiEvaluation?.overallScore ?? 0) >= 85).length;
   const interviewCount = applications.filter((a) => a.status === 'interview').length;
   const acceptedCount = applications.filter((a) => a.status === 'accepted').length;
 
@@ -670,15 +670,15 @@ export default function CompanyPortalPage() {
                       {/* AI Match Badge */}
                       <td className="py-4 px-6">
                         <AiScoreBadge
-                          score={app.aiEvaluation.overallScore}
-                          fitLevel={app.aiEvaluation.fitLevel}
+                          score={app.aiEvaluation?.overallScore ?? 0}
+                          fitLevel={app.aiEvaluation?.fitLevel}
                           size="md"
                         />
                       </td>
 
                       {/* AI Recommendation */}
                       <td className="py-4 px-6 font-mono text-[11px] font-bold text-emerald-300">
-                        {app.aiEvaluation.recommendation}
+                        {app.aiEvaluation?.recommendation || 'CONSIDER'}
                       </td>
 
                       {/* Status */}

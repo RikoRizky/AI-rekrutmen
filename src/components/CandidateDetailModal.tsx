@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Application, ApplicationStatus } from '@/lib/types';
-import { updateApplicationStatus, getCurrentUser, getDefaultUserAvatar } from '@/lib/storage';
+import { updateApplicationStatus, getCurrentUser, getDefaultUserAvatar, repairApplicationEvaluation } from '@/lib/storage';
 import AiAnalysisRadar from './AiAnalysisRadar';
 import AiScoreBadge from './AiScoreBadge';
 import {
@@ -58,7 +58,7 @@ export default function CandidateDetailModal({
   const [copiedDocId, setCopiedDocId] = useState<string | null>(null);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  const evalRes = application.aiEvaluation;
+  const evalRes = application.aiEvaluation || repairApplicationEvaluation(application).aiEvaluation;
   const biodata = application.applicantBiodata;
   const bgReport = biodata?.aiBackgroundReport;
 
@@ -305,7 +305,7 @@ export default function CandidateDetailModal({
                     <span>Kekuatan Utama Kandidat (Strengths)</span>
                   </h4>
                   <ul className="space-y-2 text-slate-200 text-xs sm:text-sm leading-relaxed">
-                    {evalRes.strengths.map((str, i) => (
+                    {(evalRes.strengths || []).map((str, i) => (
                       <li key={i} className="flex items-start gap-2.5">
                         <span className="text-emerald-400 font-bold shrink-0 mt-0.5">•</span>
                         <span>{str}</span>
@@ -320,7 +320,7 @@ export default function CandidateDetailModal({
                     <span>Area Pengembangan / Celah (Gaps)</span>
                   </h4>
                   <ul className="space-y-2 text-slate-200 text-xs sm:text-sm leading-relaxed">
-                    {evalRes.gaps.map((gap, i) => (
+                    {(evalRes.gaps || []).map((gap, i) => (
                       <li key={i} className="flex items-start gap-2.5">
                         <span className="text-amber-400 font-bold shrink-0 mt-0.5">•</span>
                         <span>{gap}</span>

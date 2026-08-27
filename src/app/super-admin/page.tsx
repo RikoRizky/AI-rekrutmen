@@ -634,8 +634,8 @@ export default function SuperAdminPage() {
                           <p className="text-[11px] text-slate-400">{app.applicantEmail} • Dilamar: {new Date(app.appliedDate).toLocaleDateString('id-ID')}</p>
                         </div>
                         <AiScoreBadge
-                          score={app.aiEvaluation.overallScore}
-                          fitLevel={app.aiEvaluation.fitLevel}
+                          score={app.aiEvaluation?.overallScore ?? 0}
+                          fitLevel={app.aiEvaluation?.fitLevel}
                           size="sm"
                         />
                       </div>

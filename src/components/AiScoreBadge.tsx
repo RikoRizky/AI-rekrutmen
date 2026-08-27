@@ -17,6 +17,8 @@ export default function AiScoreBadge({
   recommendation,
   size = 'md'
 }: AiScoreBadgeProps) {
+  const safeScore = typeof score === 'number' && !isNaN(score) ? score : 0;
+
   const getBadgeStyle = (sc: number) => {
     if (sc >= 85) {
       return {
@@ -45,16 +47,25 @@ export default function AiScoreBadge({
         label: fitLevel || 'Moderate Match'
       };
     }
+    if (sc > 0) {
+      return {
+        bg: 'bg-rose-500/15',
+        border: 'border-rose-500/30',
+        text: 'text-rose-300',
+        dot: 'bg-rose-400',
+        label: fitLevel || 'Low Match'
+      };
+    }
     return {
-      bg: 'bg-rose-500/15',
-      border: 'border-rose-500/30',
-      text: 'text-rose-300',
-      dot: 'bg-rose-400',
-      label: fitLevel || 'Low Match'
+      bg: 'bg-slate-500/15',
+      border: 'border-slate-500/30',
+      text: 'text-slate-300',
+      dot: 'bg-slate-400',
+      label: fitLevel || 'Diproses AI'
     };
   };
 
-  const style = getBadgeStyle(score);
+  const style = getBadgeStyle(safeScore);
 
   if (size === 'sm') {
     return (
