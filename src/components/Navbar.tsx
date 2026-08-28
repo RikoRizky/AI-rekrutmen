@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { User, Application } from '@/lib/types';
-import { getCurrentUser, logoutUser, getAllApplications, getAllCompanies, getDefaultCompanyLogo, getDefaultUserAvatar, REFRESH_EVENT, initializeStorage } from '@/lib/storage';
+import { getCurrentUser, getAllUsers, logoutUser, getAllApplications, getAllCompanies, getDefaultCompanyLogo, getDefaultUserAvatar, REFRESH_EVENT, initializeStorage } from '@/lib/storage';
 import {
   Briefcase,
   PlusCircle,
@@ -54,6 +54,11 @@ export default function Navbar() {
     }
     if (currentUser.avatar && !currentUser.avatar.includes('avataaars') && !currentUser.avatar.includes('api.dicebear.com')) {
       return currentUser.avatar;
+    }
+    const allUsers = getAllUsers();
+    const matched = allUsers.find(u => u.id === currentUser.id || (currentUser.email && u.email.toLowerCase() === currentUser.email.toLowerCase()));
+    if (matched?.avatar && !matched.avatar.includes('avataaars') && !matched.avatar.includes('api.dicebear.com')) {
+      return matched.avatar;
     }
     return getDefaultUserAvatar(currentUser.name || 'User');
   };

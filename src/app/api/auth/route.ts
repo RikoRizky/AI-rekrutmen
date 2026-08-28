@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getDefaultUserAvatar } from '@/lib/storage';
+import { getDefaultUserAvatar } from '@/lib/avatar-utils';
 import { hashPassword, verifyPassword, isPasswordHashed } from '@/lib/password';
 
 // GET /api/auth?email=... OR GET all users
@@ -97,7 +97,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action, name, email, password, role, phone, headline, companyId, companyName } = body;
+    const { action, name, email, password, role, phone, headline, companyId, companyName, avatar: incomingAvatar, image: incomingImage } = body;
+    const resolvedAvatar = (incomingAvatar || incomingImage || '').trim();
 
     if (!email) {
       return NextResponse.json({ success: false, error: 'Email wajib diisi' }, { status: 400 });
@@ -114,6 +115,15 @@ export async function POST(req: NextRequest) {
       });
 
       if (user) {
+        // If Google picture is provided and user has no custom image or default svg, update image
+        if (resolvedAvatar && (!user.image || user.image.startsWith('data:image/svg+xml') || !user.image.includes('http'))) {
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: { image: resolvedAvatar },
+            include: { company: true }
+          });
+        }
+
         return NextResponse.json({
           success: true,
           message: 'Berhasil masuk dengan Google',
@@ -124,7 +134,7 @@ export async function POST(req: NextRequest) {
             phone: user.phone,
             role: user.role,
             headline: user.headline,
-            avatar: user.image,
+            avatar: user.image || resolvedAvatar || getDefaultUserAvatar(user.name),
             companyId: user.companyId,
             companyName: user.company?.name || companyName,
             biodata: user.biodata as any,
@@ -135,7 +145,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Register new user via Google (null password for OAuth accounts)
-      const avatar = getDefaultUserAvatar(name || cleanEmail);
+      const defaultAvatar = getDefaultUserAvatar(name || cleanEmail);
       user = await prisma.user.create({
         data: {
           id: `user-${Date.now()}`,
@@ -145,7 +155,7 @@ export async function POST(req: NextRequest) {
           role: role || 'applicant',
           phone: phone || null,
           headline: headline || 'Pencari Kerja / Talenta',
-          image: avatar,
+          image: resolvedAvatar || defaultAvatar,
           companyId: companyId || null,
         },
         include: { company: true }
@@ -161,7 +171,7 @@ export async function POST(req: NextRequest) {
           phone: user.phone,
           role: user.role,
           headline: user.headline,
-          avatar: user.image || getDefaultUserAvatar(user.name),
+          avatar: user.image || resolvedAvatar || defaultAvatar,
           companyId: user.companyId,
           companyName: user.company?.name || companyName,
           biodata: user.biodata as any,

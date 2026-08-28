@@ -116,6 +116,12 @@ function ProfileContent() {
       reader.onloadend = () => {
         const base64 = reader.result as string;
         setAvatarUrl(base64);
+        if (currentUser) {
+          const updated = { ...currentUser, avatar: base64 };
+          setCurrentUser(updated);
+          localStorage.setItem('smartrecruit_current_user', JSON.stringify(updated));
+          window.dispatchEvent(new Event('smartrecruit_data_refreshed'));
+        }
       };
       reader.readAsDataURL(file);
     }

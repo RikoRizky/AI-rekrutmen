@@ -241,90 +241,33 @@ export default function CandidateDetailModal({
           {activeTab === 'ai-summary' && (
             <div className="space-y-6">
 
-              {/* Radar Component */}
-              <AiAnalysisRadar evaluation={evalRes} />
-
-              {/* Executive Summary */}
-              <div className="p-5 rounded-3xl bg-slate-950 border border-slate-800 space-y-2">
-                <h4 className="font-bold text-white flex items-center gap-2 text-sm">
-                  <Sparkles className="w-4 h-4 text-emerald-400" />
-                  <span>Ringkasan Eksekutif AI</span>
+              {/* 1. Executive AI Summary */}
+              <div className="p-5 sm:p-6 rounded-3xl bg-slate-950/90 border border-slate-800/80 space-y-2.5 shadow-xl">
+                <h4 className="font-bold text-emerald-400 flex items-center gap-2 text-sm sm:text-base">
+                  <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Executive AI Summary</span>
                 </h4>
                 <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
                   {evalRes.executiveSummary}
                 </p>
                 {evalRes.recommendationReason && (
-                  <p className="text-slate-400 text-xs pt-2 border-t border-slate-800 leading-relaxed">
+                  <p className="text-slate-400 text-xs pt-2.5 border-t border-slate-800/80 leading-relaxed">
                     <strong className="text-slate-300">Alasan Rekomendasi:</strong> {evalRes.recommendationReason}
                   </p>
                 )}
               </div>
 
-              {/* Score Breakdown Bar */}
-              <div className="p-5 rounded-3xl bg-slate-950 border border-slate-800 space-y-4">
-                <h4 className="font-bold text-white text-sm">Rincian 5 Parameter Skor Evaluasi</h4>
-                
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs sm:text-sm font-bold">
-                      <span className="text-slate-200">1. Kualifikasi Teknis & Keterampilan Utama</span>
-                      <span className="text-emerald-400 font-black">{evalRes.technicalScore}%</span>
-                    </div>
-                    <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${evalRes.technicalScore}%` }} />
-                    </div>
-                  </div>
+              {/* 2. Radar 5 Dimensi & 5 Parameter Skor (Side-by-Side) */}
+              <AiAnalysisRadar evaluation={evalRes} />
 
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs sm:text-sm font-bold">
-                      <span className="text-slate-200">2. Relevansi Pengalaman & Riwayat Karir</span>
-                      <span className="text-emerald-400 font-black">{evalRes.experienceScore}%</span>
-                    </div>
-                    <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${evalRes.experienceScore}%` }} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs sm:text-sm font-bold">
-                      <span className="text-slate-200">3. Kesesuaian Pendidikan & Latar Akademik</span>
-                      <span className="text-emerald-400 font-black">{evalRes.educationScore}%</span>
-                    </div>
-                    <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${evalRes.educationScore}%` }} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs sm:text-sm font-bold">
-                      <span className="text-slate-200">4. Motivasi & Ketertarikan Karir</span>
-                      <span className="text-emerald-400 font-black">{evalRes.motivationScore}%</span>
-                    </div>
-                    <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${evalRes.motivationScore}%` }} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs sm:text-sm font-bold">
-                      <span className="text-slate-200">5. Keselarasan Budaya Kerja (Culture Fit)</span>
-                      <span className="text-emerald-400 font-black">{evalRes.cultureFitScore || 85}%</span>
-                    </div>
-                    <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${evalRes.cultureFitScore || 85}%` }} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Strengths & Gaps */}
+              {/* 3. Strengths & Gaps (2 Kolom) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="p-5 rounded-3xl bg-emerald-950/20 border border-emerald-500/30 space-y-3">
+                <div className="p-5 sm:p-6 rounded-3xl bg-emerald-950/20 border border-emerald-500/30 space-y-3 shadow-lg">
                   <h4 className="font-bold text-emerald-400 flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="w-4 h-4" />
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
                     <span>Kekuatan Utama Kandidat (Strengths)</span>
                   </h4>
-                  <ul className="space-y-2 text-slate-200 text-xs sm:text-sm leading-relaxed">
+                  <ul className="space-y-2.5 text-slate-200 text-xs sm:text-sm leading-relaxed">
                     {(evalRes.strengths || []).map((str, i) => (
                       <li key={i} className="flex items-start gap-2.5">
                         <span className="text-emerald-400 font-bold shrink-0 mt-0.5">•</span>
@@ -334,12 +277,12 @@ export default function CandidateDetailModal({
                   </ul>
                 </div>
 
-                <div className="p-5 rounded-3xl bg-amber-950/20 border border-amber-500/30 space-y-3">
+                <div className="p-5 sm:p-6 rounded-3xl bg-amber-950/20 border border-amber-500/30 space-y-3 shadow-lg">
                   <h4 className="font-bold text-amber-400 flex items-center gap-2 text-sm">
-                    <AlertCircle className="w-4 h-4" />
+                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
                     <span>Area Pengembangan / Celah (Gaps)</span>
                   </h4>
-                  <ul className="space-y-2 text-slate-200 text-xs sm:text-sm leading-relaxed">
+                  <ul className="space-y-2.5 text-slate-200 text-xs sm:text-sm leading-relaxed">
                     {(evalRes.gaps || []).map((gap, i) => (
                       <li key={i} className="flex items-start gap-2.5">
                         <span className="text-amber-400 font-bold shrink-0 mt-0.5">•</span>

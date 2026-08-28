@@ -10,10 +10,11 @@ export interface EvaluateApplicantParams {
 }
 
 const FALLBACK_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-2.5-pro',
+  'gemini-1.5-flash',
   'gemini-3.5-flash',
-  'gemini-3.6-flash',
-  'gemini-flash-latest',
-  'gemini-2.5-flash'
+  'gemini-3.6-flash'
 ];
 
 /**
@@ -26,7 +27,7 @@ export async function evaluateApplicantWithAi({
   applicantName,
   applicantHeadline = '',
   geminiApiKey = '',
-  preferredModel = 'gemini-3.6-flash'
+  preferredModel = (typeof process !== 'undefined' && process.env?.GEMINI_MODEL) || 'gemini-2.5-flash'
 }: EvaluateApplicantParams): Promise<AiEvaluationResult> {
   const startTime = Date.now();
 
@@ -79,7 +80,6 @@ ${otherDocs.length > 0 ? otherDocs.map(o => `[${o.name}]\n${o.extractedText || '
     }
   }
 
-  
   // If Gemini API Key is available (direct or server), run authentic Gemini AI analysis
   if (apiKey && apiKey.length > 10) {
     try {
@@ -158,10 +158,11 @@ async function callSingleGeminiModel(
 ): Promise<AiEvaluationResult | null> {
   const prompt = `
 Anda adalah AI Human Resource Director & Senior ATS Screening Specialist bersertifikasi internasional.
-Lakukan analisis mendalam, kritis, objektif, dan komprehensif terhadap berkas lamaran kandidat berikut dibandingkan dengan kualifikasi lowongan pekerjaan.
+Lakukan analisis mendalam, kritis, tajam, objektif, dan komprehensif terhadap seluruh berkas lamaran kandidat (CV, Surat Lamaran, Portofolio, Sertifikat) dibandingkan dengan kualifikasi lowongan pekerjaan yang dilamar.
 
 === INFORMASI LOWONGAN PEKERJAAN ===
 Judul Posisi: ${job.title}
+Perusahaan: ${job.companyName}
 Departemen: ${job.department}
 Tipe Pekerjaan: ${job.type}
 Tingkat Pengalaman yang Dibutuhkan: ${job.experienceLevel}
@@ -183,43 +184,35 @@ Headline: ${applicantHeadline || 'Tidak dicantumkan'}
 === BERKAS DOKUMEN ASLI PELAMAR (CV, SURAT LAMARAN, SERTIFIKAT, PORTOFOLIO) ===
 ${documentsText}
 
-=== INSTRUKSI ANALISIS MENDALAM ===
-1. Baca dan telaah seluruh teks riwayat kerja, deskripsi proyek, tools/teknologi yang digunakan, pendidikan, dan sertifikasi pelamar.
-2. Berikan penilaian skor objektif (skala 0 - 100) untuk masing-masing dimensi berikut:
-   - technicalScore (Bobot 35%): Kesesuaian nyata keahlian teknis, framework, tools, dan bahasa pemrograman terhadap Key Skills lowongan.
-   - experienceScore (Bobot 30%): Kesesuaian jumlah tahun pengalaman, relevansi industri, kedalaman proyek, dan seniority.
-   - educationScore (Bobot 20%): Kesesuaian jenjang pendidikan, jurusan terkait, dan sertifikasi profesional pendukung.
-   - motivationScore (Bobot 15%): Kualitas surat lamaran, keselarasan visi karir, kejelasan komunikasi, dan antusiasme pelamar.
-   - cultureFitScore (Opsional, skala 0-100): Kesiapan adaptasi, kolaborasi tim, dan kepemimpinan.
-   - overallScore: Nilai agregat tertimbang (35% Technical + 30% Experience + 20% Education + 15% Motivation).
-3. Tentukan fitLevel:
+=== INSTRUKSI ANALISIS MENDALAM & VALIDASI RELEVANSI ===
+1. Telaah seluruh teks CV, Surat Lamaran, Riwayat Karir, Portofolio, dan Sertifikat pelamar.
+2. ANALISIS KESESUAIAN DOMAIN / SEKTOR INDUSTRI:
+   - Bandingkan secara cermat apakah domain keahlian pelamar (misal: Software/AI Engineering, F&B/Hospitality, Sales, Finance, dsb) benar-benar cocok dengan posisi ${job.title}.
+   - Deteksi apakah ada salah kirim berkas (wrong document submission), contoh: pelamar memasukkan CV software engineer untuk lowongan barista kedai kopi, atau surat lamaran ditujukan ke perusahaan/posisi lain.
+   - Jika ada perbedaan domain ekstrem / salah kirim berkas, jelaskan secara eksplisit di executiveSummary dan recommendationReason, serta berikan skor yang mencerminkan ketidakcocokan tersebut (Low Match).
+3. Berikan penilaian skor objektif (skala 0 - 100) untuk 5 Dimensi Kompetensi berikut:
+   - technicalScore (Kualifikasi Teknis): Kesesuaian nyata keahlian teknis, tools, dan metodologi pelamar terhadap Key Skills lowongan (${job.keySkills.join(', ')}).
+   - experienceScore (Relevansi Pengalaman): Kesesuaian jumlah tahun pengalaman, relevansi industri, kedalaman proyek, dan seniority.
+   - educationScore (Latar Belakang Pendidikan): Kesesuaian jenjang pendidikan, jurusan terkait, dan sertifikasi profesional pendukung.
+   - motivationScore (Motivasi & Ketertarikan Karir): Kualitas surat lamaran, relevansi tujuan pelamar, kejelasan komunikasi, dan antusiasme.
+   - cultureFitScore (Keselarasan Budaya Kerja): Kesiapan adaptasi, kolaborasi tim, kepemimpinan, dan etika profesional.
+   - overallScore: Nilai agregat tertimbang (35% Technical + 30% Experience + 20% Education + 15% Motivation). Catatan: Jika domain tidak relevan sama sekali, overallScore harus mencerminkan Low Match (< 50).
+4. Tentukan fitLevel:
    - "Top Match" (overallScore >= 85)
    - "High Match" (overallScore >= 70 && < 85)
    - "Moderate Match" (overallScore >= 50 && < 70)
    - "Low Match" (overallScore < 50)
-4. Tentukan recommendation:
+5. Tentukan recommendation:
    - "STRONGLY_RECOMMENDED" (Sangat direkomendasikan lanjut ke Hiring Manager)
    - "INTERVIEW" (Layak diuji wawancara teknis / HR)
    - "CONSIDER" (Dipertimbangkan sebagai cadangan / perlu pendalaman)
    - "NOT_SUITABLE" (Belum memenuhi kualifikasi)
-5. Susun "executiveSummary" dalam Bahasa Indonesia formal dan tajam (3-4 kalimat padat yang menjelaskan profil kandidat, kecocokannya terhadap lowongan ini, dan poin pertimbangan utama).
-6. Tulis "strengths" (3-5 poin spesifik yang mengutip bukti nyata dari CV/portofolio pelamar).
-7. Tulis "gaps" (2-4 poin kekurangan, kesenjangan kompetensi, atau hal yang belum terbukti di CV).
-8. Identifikasi "matchedSkills" (daftar skill dari Key Skills lowongan yang benar-benar ada di berkas).
-9. Identifikasi "missingSkills" (daftar skill dari Key Skills lowongan yang belum/tidak ditemukan di berkas).
-10. Identifikasi "additionalSkills" (2-4 keahlian bernilai tambah yang dimiliki pelamar di luar kualifikasi lowongan).
-11. Buat "detailedQuestions" (3-4 pertanyaan wawancara khusus yang dibuat spesifik menggali isi CV kandidat ini):
-    Setiap pertanyaan harus memiliki format objek:
-    {
-      "question": "Kalimat pertanyaan wawancara terpersonalisasi",
-      "context": "Alasan mengapa pertanyaan ini diajukan berdasarkan CV kandidat",
-      "targetCriteria": "Hal-hal yang diharapkan dijawab oleh kandidat untuk membuktikan kompetensinya"
-    }
-12. VERIFIKASI NAMA — WAJIB: Cari nama "${applicantName}" (atau variasi singkatannya) di dalam teks dokumen yang diberikan.
-    - Jika nama ditemukan: tambahkan ke "riskFactors" catatan positif seperti "Nama di CV konsisten dengan nama resmi yang didaftarkan."
-    - Jika nama TIDAK ditemukan atau berbeda: WAJIB tambahkan ke "riskFactors" peringatan seperti "PERHATIAN: Nama '${applicantName}' yang terdaftar di sistem tidak ditemukan dalam dokumen CV — perlu klarifikasi identitas kandidat."
-    - Jika dokumen tidak ada: tambahkan "Tidak ada dokumen CV yang diunggah untuk verifikasi nama."
-13. Tulis "riskFactors" (poin potensi risiko jika ada, misalnya sering berpindah kerja < 6 bulan, gap karir, overqualified/underqualified, atau inkonsistensi nama; jika benar-benar tidak ada beri array kosong []).
+6. Susun "executiveSummary" dalam Bahasa Indonesia formal, lugas, dan tajam (3-4 kalimat padat yang menjelaskan profil kandidat, apakah berkas relevan atau tidak dengan posisi ${job.title}, dan poin pertimbangan utama).
+7. Tulis "recommendationReason" (1-2 kalimat tegas yang merangkum alasan utama rekomendasi/keputusan ATS).
+8. Tulis "strengths" (2-4 poin kekuatan utama kandidat yang mengutip fakta riil dari berkas pelamar).
+9. Tulis "gaps" (2-4 poin celah kompetensi, kekurangan teknis, atau ketidaksesuaian nyata terhadap kualifikasi lowongan ${job.title}).
+10. Identifikasi "matchedSkills", "missingSkills", dan "additionalSkills".
+11. Buat 3 pertanyaan wawancara terpersonalisasi di "detailedQuestions" menggali isi berkas kandidat.
 
 KEMBALIKAN HANYA JSON MURNI YANG VALID (Valid JSON Object) TANPA MARKDOWN BACKTICKS ATAU PENJELASAN LAIN DI LUAR JSON. Format JSON:
 {
@@ -370,7 +363,11 @@ export function runIntelligentLocalAnalysis(
       'behavioral interview (bei)': ['bei', 'behavioral interview', 'star method', 'interview kompetensi'],
       'python': ['python', 'pandas', 'numpy', 'scipy', 'django', 'flask'],
       'sql': ['sql', 'postgresql', 'mysql', 'queries', 'rdbms', 'sqlite'],
-      'tableau / power bi': ['tableau', 'power bi', 'powerbi', 'looker', 'metabase']
+      'tableau / power bi': ['tableau', 'power bi', 'powerbi', 'looker', 'metabase'],
+      'coffee brewing': ['coffee', 'barista', 'brewing', 'v60', 'espresso', 'manual brew', 'latte art'],
+      'espresso calibration': ['espresso', 'grinder', 'calibration', 'mesin kopi', 'coffee machine'],
+      'inventory management': ['inventory', 'stok', 'stock', 'pergudangan', 'fifo', 'pos system'],
+      'customer service': ['pelayanan', 'customer service', 'hospitality', 'kasir', 'waiter', 'barista']
     };
 
     const searchTokens = variations[sLower] || [sLower];
@@ -383,12 +380,10 @@ export function runIntelligentLocalAnalysis(
     }
   }
 
-  const skillMatchRatio = job.keySkills.length > 0
-    ? matchedSkills.length / job.keySkills.length
-    : 0.8;
-  
-  let technicalScore = Math.round(skillMatchRatio * 85 + (matchedSkills.length > 0 ? 15 : 0));
-  technicalScore = Math.min(99, Math.max(20, technicalScore));
+  const isCompleteMismatch = job.keySkills.length > 0 && matchedSkills.length === 0;
+
+  let technicalScore = isCompleteMismatch ? 10 : Math.round((matchedSkills.length / (job.keySkills.length || 1)) * 85 + (matchedSkills.length > 0 ? 15 : 0));
+  technicalScore = Math.min(99, Math.max(10, technicalScore));
 
   // 2. Experience Level Evaluation
   let experienceScore = 50;
@@ -401,7 +396,9 @@ export function runIntelligentLocalAnalysis(
     }
   }
 
-  if (job.experienceLevel.includes('Senior') || job.experienceLevel.includes('5+')) {
+  if (isCompleteMismatch) {
+    experienceScore = 15;
+  } else if (job.experienceLevel.includes('Senior') || job.experienceLevel.includes('5+')) {
     if (maxYearsFound >= 5 || combinedText.includes('senior') || combinedText.includes('lead')) {
       experienceScore = 92;
     } else if (maxYearsFound >= 3 || combinedText.includes('mid-level')) {
@@ -422,8 +419,8 @@ export function runIntelligentLocalAnalysis(
   }
 
   // 3. Education & Certifications Evaluation
-  let educationScore = 60;
-  const hasBachelor = combinedText.includes('s1') || combinedText.includes('sarjana') || combinedText.includes('bachelor') || combinedText.includes('universitas') || combinedText.includes('institut');
+  let educationScore = 40;
+  const hasBachelor = combinedText.includes('s1') || combinedText.includes('d4') || combinedText.includes('sarjana') || combinedText.includes('bachelor') || combinedText.includes('universitas') || combinedText.includes('institut');
   const hasCertificate = documents.some(d => d.type === 'certificate') || combinedText.includes('sertifikat') || combinedText.includes('certified') || combinedText.includes('certification');
   
   if (hasBachelor && hasCertificate) {
@@ -433,30 +430,30 @@ export function runIntelligentLocalAnalysis(
   } else if (hasCertificate) {
     educationScore = 75;
   } else {
-    educationScore = 60;
+    educationScore = 40;
   }
 
   // 4. Motivation & Cover Letter Evaluation
-  let motivationScore = 65;
+  let motivationScore = isCompleteMismatch ? 10 : 65;
   const hasCoverLetter = documents.some(d => d.type === 'cover_letter');
   if (hasCoverLetter) {
     const cl = documents.find(d => d.type === 'cover_letter')!;
-    if (cl.extractedText.length > 200) {
+    if (cl.extractedText.length > 200 && !isCompleteMismatch) {
       motivationScore = 92;
-    } else {
+    } else if (!isCompleteMismatch) {
       motivationScore = 78;
     }
-  } else {
-    motivationScore = 65;
   }
 
   // 5. Aggregate Overall Score
-  const overallScore = Math.round(
-    technicalScore * 0.35 +
-    experienceScore * 0.30 +
-    educationScore * 0.20 +
-    motivationScore * 0.15
-  );
+  const overallScore = isCompleteMismatch
+    ? 10
+    : Math.round(
+        technicalScore * 0.35 +
+        experienceScore * 0.30 +
+        educationScore * 0.20 +
+        motivationScore * 0.15
+      );
 
   // 6. Fit Level & Recommendation
   let fitLevel: FitLevel = 'Moderate Match';
@@ -480,28 +477,36 @@ export function runIntelligentLocalAnalysis(
   const strengths: string[] = [];
   const gaps: string[] = [];
 
-  if (matchedSkills.length > 0) {
-    strengths.push(`Menguasai ${matchedSkills.length} dari ${job.keySkills.length} keahlian utama yang disyaratkan (${matchedSkills.slice(0, 3).join(', ')}${matchedSkills.length > 3 ? ', dll' : ''}).`);
-  }
-  if (experienceScore >= 80) {
-    strengths.push(`Tingkat pengalaman (${maxYearsFound > 0 ? maxYearsFound + ' tahun' : 'solid'}) selaras dengan kualifikasi ${job.experienceLevel}.`);
+  if (hasBachelor) {
+    strengths.push(`Pendidikan formal pelamar melampaui batas minimum kualifikasi yang disyaratkan.`);
   }
   if (hasCertificate) {
-    strengths.push(`Melampirkan berkas sertifikasi kompetensi profesional pendukung.`);
+    strengths.push(`Memiliki rekam jejak sertifikasi kompetensi profesional pendukung.`);
+  }
+  if (matchedSkills.length > 0) {
+    strengths.push(`Menguasai ${matchedSkills.length} dari ${job.keySkills.length} keahlian utama yang disyaratkan (${matchedSkills.slice(0, 3).join(', ')}).`);
   }
 
-  if (missingSkills.length > 0) {
-    gaps.push(`Belum teridentifikasi pengalaman spesifik pada: ${missingSkills.slice(0, 4).join(', ')}.`);
-  }
-  if (experienceScore < 70) {
-    gaps.push(`Tingkat pengalaman belum sepenuhnya mencapai target ${job.experienceLevel} yang disyaratkan.`);
+  if (isCompleteMismatch) {
+    gaps.push(`Tidak memiliki keahlian teknis maupun pengoperasian tools yang disyaratkan untuk posisi ${job.title}.`);
+    gaps.push(`Seluruh pengalaman kerja dan kompetensi kandidat berada di domain industri yang berbeda.`);
+  } else {
+    if (missingSkills.length > 0) {
+      gaps.push(`Belum teridentifikasi pengalaman spesifik pada: ${missingSkills.slice(0, 4).join(', ')}.`);
+    }
+    if (experienceScore < 70) {
+      gaps.push(`Tingkat pengalaman belum sepenuhnya mencapai target ${job.experienceLevel} yang disyaratkan.`);
+    }
   }
 
   let executiveSummary = '';
   let recommendationReason = '';
 
-  if (fitLevel === 'Top Match') {
-    executiveSummary = `Kandidat ${applicantName} memiliki keselarasan profil yang sangat kuat untuk posisi ${job.title}. Penguasaan stack teknologi (${matchedSkills.join(', ')}) dan riwayat karir memenuhi standar tinggi yang disyaratkan.`;
+  if (isCompleteMismatch) {
+    executiveSummary = `Kandidat ${applicantName} mengajukan berkas lamaran yang tidak relevan dengan posisi ${job.title}. Seluruh pengalaman kerja, sertifikasi, dan kompetensi teknis kandidat berada pada domain keahlian yang berbeda dengan kualifikasi yang dibutuhkan.`;
+    recommendationReason = `Kandidat tidak memenuhi kualifikasi teknis dan pengalaman operasional yang dibutuhkan untuk posisi ${job.title}.`;
+  } else if (fitLevel === 'Top Match') {
+    executiveSummary = `Kandidat ${applicantName} memiliki keselarasan profil yang sangat kuat untuk posisi ${job.title}. Penguasaan keahlian (${matchedSkills.join(', ')}) dan riwayat karir memenuhi standar tinggi yang disyaratkan.`;
     recommendationReason = 'Sangat direkomendasikan untuk segera dijadwalkan wawancara dengan Hiring Manager.';
   } else if (fitLevel === 'High Match') {
     executiveSummary = `Kandidat ${applicantName} menunjukkan kompetensi yang relevan dan solid untuk posisi ${job.title}, dengan penguasaan pada mayoritas keahlian kunci.`;
