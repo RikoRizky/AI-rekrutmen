@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { User, UserBiodata, SocialMediaItem, DocumentAttachment } from '@/lib/types';
+import { User, UserBiodata, DocumentAttachment } from '@/lib/types';
 import {
   getCurrentUser,
   updateUserBiodata,
@@ -15,53 +15,20 @@ import Link from 'next/link';
 import {
   User as UserIcon,
   GraduationCap,
-  Share2,
   Calendar,
   MapPin,
   Building,
   CheckCircle2,
   ArrowRight,
-  Globe,
   Loader2,
   Save,
-  Plus,
-  Trash2,
-  Link as LinkIcon,
-  Check,
   Sparkles,
-  Info,
   Camera,
   Upload,
-  Image as ImageIcon,
   Phone,
-  FileText
+  FileText,
+  Briefcase
 } from 'lucide-react';
-
-const PRESET_PLATFORMS = [
-  { name: 'LinkedIn', placeholder: 'https://linkedin.com/in/username' },
-  { name: 'GitHub', placeholder: 'https://github.com/username' },
-  { name: 'Instagram', placeholder: '@username atau https://instagram.com/username' },
-  { name: 'TikTok', placeholder: '@username atau https://tiktok.com/@username' },
-  { name: 'Facebook', placeholder: 'https://facebook.com/username' },
-  { name: 'Twitter (X)', placeholder: '@username atau https://x.com/username' },
-  { name: 'YouTube', placeholder: 'https://youtube.com/@channel' },
-  { name: 'Portofolio / Website', placeholder: 'https://portofolio-anda.com' }
-];
-
-const ALL_PLATFORMS = [
-  'LinkedIn',
-  'GitHub',
-  'Instagram',
-  'TikTok',
-  'Facebook',
-  'Twitter (X)',
-  'YouTube',
-  'Threads',
-  'Portofolio / Website',
-  'Behance / Dribbble',
-  'Medium / Dev.to',
-  'Lainnya'
-];
 
 function ProfileContent() {
   const router = useRouter();
@@ -73,7 +40,7 @@ function ProfileContent() {
   // Photo State
   const [avatarUrl, setAvatarUrl] = useState('');
 
-  // Form State - Biodata
+  // Form State - Data Pribadi
   const [fullName, setFullName] = useState('');
   const [gender, setGender] = useState<'Laki-laki' | 'Perempuan' | ''>('');
   const [phone, setPhone] = useState('');
@@ -82,20 +49,15 @@ function ProfileContent() {
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
 
-  // Education
+  // Form State - Pendidikan
   const [lastEducation, setLastEducation] = useState('S1');
   const [educationMajor, setEducationMajor] = useState('');
   const [institutionName, setInstitutionName] = useState('');
   const [graduationYear, setGraduationYear] = useState('');
   const [gpa, setGpa] = useState('');
 
-  // Dynamic Social Media Accounts List
-  const [socialItems, setSocialItems] = useState<SocialMediaItem[]>([
-    { id: '1', platform: 'LinkedIn', urlOrUsername: '' },
-    { id: '2', platform: 'GitHub', urlOrUsername: '' },
-    { id: '3', platform: 'Instagram', urlOrUsername: '' }
-  ]);
-  const [additionalBio, setAdditionalBio] = useState('');
+  // Form State - Deskripsi Profil / Bio
+  const [bioSummary, setBioSummary] = useState('');
 
   // Documents State (CV, Surat Lamaran, Sertifikat)
   const [documents, setDocuments] = useState<DocumentAttachment[]>([]);
@@ -136,32 +98,11 @@ function ProfileContent() {
     setInstitutionName(user.biodata?.institutionName || '');
     setGraduationYear(user.biodata?.graduationYear || '');
     setGpa(user.biodata?.gpa || '');
-    setAdditionalBio(user.biodata?.socials?.additionalBio || '');
+    setBioSummary(user.biodata?.bioSummary || user.biodata?.socials?.additionalBio || '');
 
     const initialDocs = user.biodata?.documents || [];
     setDocuments(initialDocs);
-
-    // Reconstruct socialItems from saved profile
-    if (user.biodata?.socials) {
-      const savedSocials = user.biodata.socials;
-      if (savedSocials.customLinks && savedSocials.customLinks.length > 0) {
-        setSocialItems(savedSocials.customLinks);
-      } else {
-        const loaded: SocialMediaItem[] = [];
-        if (savedSocials.linkedin) loaded.push({ id: 'li', platform: 'LinkedIn', urlOrUsername: savedSocials.linkedin });
-        if (savedSocials.github) loaded.push({ id: 'gh', platform: 'GitHub', urlOrUsername: savedSocials.github });
-        if (savedSocials.instagram) loaded.push({ id: 'ig', platform: 'Instagram', urlOrUsername: savedSocials.instagram });
-        if (savedSocials.tiktok) loaded.push({ id: 'tt', platform: 'TikTok', urlOrUsername: savedSocials.tiktok });
-        if (savedSocials.facebook) loaded.push({ id: 'fb', platform: 'Facebook', urlOrUsername: savedSocials.facebook });
-        if (savedSocials.twitter) loaded.push({ id: 'tw', platform: 'Twitter (X)', urlOrUsername: savedSocials.twitter });
-        if (savedSocials.portfolioUrl) loaded.push({ id: 'pf', platform: 'Portofolio / Website', urlOrUsername: savedSocials.portfolioUrl });
-
-        if (loaded.length > 0) {
-          setSocialItems(loaded);
-        }
-      }
-    }
-  }, []);
+  }, [router]);
 
   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -178,40 +119,6 @@ function ProfileContent() {
       };
       reader.readAsDataURL(file);
     }
-  };
-
-  const handleResetAvatar = () => {
-    const neutral = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName || currentUser?.name || 'User')}&backgroundColor=059669,047857,0f172a&textColor=ffffff`;
-    setAvatarUrl(neutral);
-  };
-
-  const handleAddPlatformPreset = (platformName: string) => {
-    setSocialItems([
-      ...socialItems,
-      { id: `soc-${Date.now()}-${Math.random()}`, platform: platformName, urlOrUsername: '' }
-    ]);
-  };
-
-  const handleAddBlankSocialItem = () => {
-    setSocialItems([
-      ...socialItems,
-      { id: `soc-${Date.now()}-${Math.random()}`, platform: 'LinkedIn', urlOrUsername: '' }
-    ]);
-  };
-
-  const handleRemoveSocialItem = (index: number) => {
-    const updated = [...socialItems];
-    updated.splice(index, 1);
-    setSocialItems(updated);
-  };
-
-  const handleSocialChange = (index: number, field: 'platform' | 'urlOrUsername', value: string) => {
-    const updated = [...socialItems];
-    updated[index] = {
-      ...updated[index],
-      [field]: value
-    };
-    setSocialItems(updated);
   };
 
   const handleDocumentsChange = (updatedDocs: DocumentAttachment[]) => {
@@ -243,21 +150,10 @@ function ProfileContent() {
     setIsSaving(true);
 
     try {
-      // Map dynamic items
-      const activeSocials = socialItems.filter((s) => s.urlOrUsername.trim().length > 0);
-      const linkedinObj = activeSocials.find((s) => s.platform === 'LinkedIn');
-      const githubObj = activeSocials.find((s) => s.platform === 'GitHub');
-      const instagramObj = activeSocials.find((s) => s.platform === 'Instagram');
-      const tiktokObj = activeSocials.find((s) => s.platform === 'TikTok');
-      const facebookObj = activeSocials.find((s) => s.platform === 'Facebook');
-      const twitterObj = activeSocials.find((s) => s.platform.includes('Twitter'));
-      const portfolioObj = activeSocials.find((s) => s.platform.includes('Portofolio') || s.platform.includes('Website'));
-
       const rawBiodata: UserBiodata = {
         fullName: fullName.trim(),
         gender: gender || undefined,
         phone: phone.trim(),
-
         birthDate: birthDate.trim(),
         birthPlace: birthPlace.trim(),
         address: address.trim(),
@@ -267,23 +163,16 @@ function ProfileContent() {
         institutionName: institutionName.trim(),
         graduationYear: graduationYear.trim(),
         gpa: gpa.trim(),
+        bioSummary: bioSummary.trim(),
         socials: {
-          linkedin: linkedinObj?.urlOrUsername.trim(),
-          github: githubObj?.urlOrUsername.trim(),
-          instagram: instagramObj?.urlOrUsername.trim(),
-          tiktok: tiktokObj?.urlOrUsername.trim(),
-          facebook: facebookObj?.urlOrUsername.trim(),
-          twitter: twitterObj?.urlOrUsername.trim(),
-          portfolioUrl: portfolioObj?.urlOrUsername.trim(),
-          customLinks: activeSocials,
-          additionalBio: additionalBio.trim()
+          additionalBio: bioSummary.trim()
         },
         documents,
         profileCompleted: true,
         updatedAt: new Date().toISOString()
       };
 
-      // Background AI screener evaluates data silently for HR
+      // Background AI evaluator performs candidate background check purely from biodata
       const aiReport = await analyzeCandidateBackgroundViaServer(rawBiodata);
       rawBiodata.aiBackgroundReport = aiReport;
 
@@ -291,7 +180,6 @@ function ProfileContent() {
       setIsSaved(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
-      // If there's a callbackUrl (e.g. from job detail), redirect back after short moment
       if (callbackUrl) {
         setTimeout(() => {
           router.push(callbackUrl);
@@ -308,7 +196,7 @@ function ProfileContent() {
   // Dynamic progress calculation based on filled fields
   const isStep1Done = Boolean(fullName.trim().length > 0 && (birthPlace.trim() || birthDate.trim() || city.trim() || address.trim()));
   const isStep2Done = Boolean(institutionName.trim().length > 0 && educationMajor.trim().length > 0);
-  const isStep3Done = socialItems.some(s => s.urlOrUsername.trim().length > 0) || Boolean(additionalBio.trim().length > 0);
+  const isStep3Done = Boolean(bioSummary.trim().length > 0 || documents.length > 0);
 
   const completedStepsCount = (isStep1Done ? 1 : 0) + (isStep2Done ? 1 : 0) + (isStep3Done ? 1 : 0);
 
@@ -331,7 +219,7 @@ function ProfileContent() {
               Kelengkapan Biodata & Profil
             </h1>
             <p className="text-xs text-slate-400 leading-relaxed max-w-2xl mt-1">
-              Lengkapi data diri, riwayat pendidikan, serta tautan media sosial dan portofolio Anda untuk mempermudah tim HRD perusahaan memverifikasi profil saat melamar pekerjaan.
+              Lengkapi data diri resmi, riwayat pendidikan, dan berkas karir Anda. Sistem AI akan mengevaluasi rekam jejak dan kualifikasi Anda secara murni dari informasi biodata yang Anda isi.
             </p>
           </div>
 
@@ -372,7 +260,7 @@ function ProfileContent() {
           </div>
         </div>
 
-        {/* Step Progression Pills (Dynamic) */}
+        {/* Step Progression Pills */}
         <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800 text-[11px] font-semibold">
           <div className={`flex items-center gap-2 ${isStep1Done ? 'text-emerald-400' : 'text-slate-500'}`}>
             <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
@@ -398,7 +286,7 @@ function ProfileContent() {
             }`}>
               {isStep3Done ? '✓' : '3'}
             </span>
-            <span className="hidden sm:inline">Media Sosial & Web</span>
+            <span className="hidden sm:inline">Ringkasan & Berkas Karir</span>
           </div>
         </div>
       </div>
@@ -413,7 +301,7 @@ function ProfileContent() {
             <div>
               <h3 className="text-sm font-bold text-white">Profil & Biodata Anda Berhasil Disimpan!</h3>
               <p className="text-slate-300 text-xs mt-0.5">
-                Data profil Anda telah tersimpan dan siap digunakan untuk melamar di seluruh lowongan kerja mitra.
+                Data profil resmi Anda telah tersimpan dan siap digunakan untuk melamar di seluruh lowongan kerja mitra.
               </p>
             </div>
           </div>
@@ -453,15 +341,15 @@ function ProfileContent() {
 
       <form onSubmit={handleSaveProfile} className="space-y-8 text-xs">
 
-        {/* SECTION 1: DATA PRIBADI & BIODATA */}
+        {/* SECTION 1: DATA PRIBADI & BIODATA RESMI */}
         <div className="p-6 sm:p-8 rounded-3xl bg-slate-900 border border-slate-800 space-y-6 shadow-xl">
           <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center font-bold">
               1
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white">Data Pribadi & Biodata Diri</h2>
-              <p className="text-[11px] text-slate-400">Identitas resmi untuk verifikasi administratif rekrutmen.</p>
+              <h2 className="text-sm font-bold text-white">Data Pribadi & Identitas Resmi (KTP)</h2>
+              <p className="text-[11px] text-slate-400">Identitas resmi untuk verifikasi administratif rekrutmen dan audit rekam jejak.</p>
             </div>
           </div>
 
@@ -530,7 +418,7 @@ function ProfileContent() {
               <input
                 type="text"
                 required
-                placeholder="Contoh: Riko Rizky"
+                placeholder="Contoh: Riko Rizky Baswara"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500 font-medium"
@@ -552,8 +440,6 @@ function ProfileContent() {
               </div>
               <p className="text-[11px] text-slate-500">Nomor ini akan otomatis terisi saat Anda mengirim lamaran ke lowongan kerja.</p>
             </div>
-
-            {/* Nama Lengkap field is above, then gender selector below */}
 
             {/* Jenis Kelamin */}
             <div className="space-y-1.5 sm:col-span-2">
@@ -688,7 +574,7 @@ function ProfileContent() {
                 required={!lastEducation.includes('SMA') && !lastEducation.includes('SMK') && lastEducation !== 'Lainnya'}
                 placeholder={
                   lastEducation.includes('SMA') || lastEducation.includes('SMK')
-                    ? 'Contoh: IPA / IPS / Rekayasa Perangkat Lunak (Opsional)'
+                    ? 'Contoh: IPA / IPS / Rekayasa Perangkat Lunak'
                     : 'Contoh: Teknik Informatika'
                 }
                 value={educationMajor}
@@ -730,123 +616,38 @@ function ProfileContent() {
           </div>
         </div>
 
-        {/* SECTION 3: DYNAMIC SOCIAL MEDIA & LINKS */}
+        {/* SECTION 3: RINGKASAN PROFIL & DESKRIPSI KARIR */}
         <div className="p-6 sm:p-8 rounded-3xl bg-slate-900 border border-slate-800 space-y-6 shadow-xl">
-
-          {/* Section Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center font-bold">
-                3
-              </div>
-              <div>
-                <h2 className="text-sm font-bold text-white">Tautan Media Sosial & Portofolio</h2>
-                <p className="text-[11px] text-slate-400">
-                  Cantumkan akun media sosial seperti LinkedIn, GitHub, Instagram, TikTok, Facebook, YouTube, atau Portofolio Anda.
-                </p>
-              </div>
+          <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center font-bold">
+              3
             </div>
-
-            <button
-              type="button"
-              onClick={handleAddBlankSocialItem}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-950/40 shrink-0 self-start sm:self-auto hover:scale-105"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Tambah Baris Baru</span>
-            </button>
-          </div>
-
-          {/* Quick Preset Buttons (1-Click Add Platform) */}
-          <div className="space-y-2">
-            <span className="text-[11px] text-slate-400 font-semibold block">
-              Pintasan Tambah Cepat:
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {PRESET_PLATFORMS.map((preset) => (
-                <button
-                  key={preset.name}
-                  type="button"
-                  onClick={() => handleAddPlatformPreset(preset.name)}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-emerald-300 border border-slate-800 hover:border-emerald-500/40 text-[11px] font-medium transition-colors flex items-center gap-1"
-                >
-                  <Plus className="w-3 h-3 text-emerald-400" />
-                  <span>{preset.name}</span>
-                </button>
-              ))}
+            <div>
+              <h2 className="text-sm font-bold text-white">Ringkasan Profil & Deskripsi Karir (Bio Diri)</h2>
+              <p className="text-[11px] text-slate-400">
+                Jelaskan fokus keahlian, minat karir, atau pencapaian profesional Anda untuk dianalisis oleh AI.
+              </p>
             </div>
           </div>
 
-          {/* Social Items List - Clean 1-Line Format */}
-          <div className="space-y-3 pt-2">
-            {socialItems.map((item, index) => (
-              <div key={item.id || index} className="flex items-center gap-2.5">
-                {/* Platform Selector */}
-                <select
-                  value={item.platform}
-                  onChange={(e) => handleSocialChange(index, 'platform', e.target.value)}
-                  className="w-36 sm:w-44 px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-emerald-400 font-semibold text-xs focus:outline-none focus:border-emerald-500 shrink-0"
-                >
-                  {ALL_PLATFORMS.map((p) => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-
-                {/* Input Link / Username */}
-                <input
-                  type="text"
-                  placeholder={`Link atau username ${item.platform}...`}
-                  value={item.urlOrUsername}
-                  onChange={(e) => handleSocialChange(index, 'urlOrUsername', e.target.value)}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500 placeholder:text-slate-500 font-mono"
-                />
-
-                {/* Delete Button */}
-                <button
-                  type="button"
-                  onClick={() => handleRemoveSocialItem(index)}
-                  className="p-2.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors shrink-0"
-                  title="Hapus baris ini"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-
-            {socialItems.length === 0 && (
-              <div className="p-6 text-center rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
-                <Share2 className="w-8 h-8 text-slate-600 mx-auto" />
-                <p className="text-slate-400 text-xs">Belum ada media sosial yang ditambahkan.</p>
-                <button
-                  type="button"
-                  onClick={handleAddBlankSocialItem}
-                  className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-emerald-400 text-xs font-semibold border border-slate-800"
-                >
-                  + Tambah Sekarang
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Extra Bio Textarea */}
-          <div className="space-y-1.5 pt-4 border-t border-slate-800/80">
+          <div className="space-y-1.5">
             <label className="font-semibold text-slate-300">
-              Deskripsi Singkat / Ringkasan Portofolio (Opsional):
+              Deskripsi Singkat / Ringkasan Pengalaman Profesional:
             </label>
             <textarea
-              rows={3}
-              placeholder="Ceritakan secara singkat mengenai minat karir, fokus keahlian, atau proyek yang pernah Anda kerjakan..."
-              value={additionalBio}
-              onChange={(e) => setAdditionalBio(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500 leading-relaxed text-xs"
+              rows={4}
+              placeholder="Ceritakan secara singkat mengenai minat karir, keahlian utama, pengalaman relevan, atau spesialisasi industri yang Anda kuasai..."
+              value={bioSummary}
+              onChange={(e) => setBioSummary(e.target.value)}
+              className="w-full px-4 py-3 rounded-2xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500 leading-relaxed text-xs placeholder:text-slate-500"
             />
+            <p className="text-[11px] text-slate-500">
+              Informasi ini akan diintegrasikan bersama riwayat pendidikan untuk menyusun laporan rekam jejak bagi tim HRD perusahaan.
+            </p>
           </div>
-
         </div>
 
-        {/* ========================================================================= */}
         {/* SECTION 4: UNGGAH BERKAS KARIR (CV, SURAT LAMARAN, & SERTIFIKAT) */}
-        {/* ========================================================================= */}
         <div className="p-6 sm:p-8 rounded-3xl bg-slate-900 border border-slate-800 space-y-6 shadow-xl relative overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
             <div className="flex items-center gap-3">
@@ -861,7 +662,7 @@ function ProfileContent() {
                   </span>
                 </h2>
                 <p className="text-[11px] text-slate-400">
-                  Unggah CV, Surat Lamaran, dan Sertifikat Anda. Berkas ini digunakan oleh sistem AI untuk menghitung skor kecocokan Anda dengan lowongan kerja mitra.
+                  Unggah CV, Surat Lamaran, dan Sertifikat Anda. Berkas ini digunakan oleh sistem AI untuk cross-check identitas resmi serta menghitung skor kecocokan loker.
                 </p>
               </div>
             </div>
@@ -878,7 +679,7 @@ function ProfileContent() {
           {/* Document Uploader Component */}
           <DocumentUploader
             documents={documents}
-            onDocumentsChange={(updatedDocs) => setDocuments(updatedDocs)}
+            onDocumentsChange={handleDocumentsChange}
           />
 
           {/* Banner link to Dedicated AI Recommendations Page */}
@@ -889,10 +690,10 @@ function ProfileContent() {
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-white">
-                  Ingin Melihat Daftar Perusahaan yang Cocok dengan CV Anda?
+                  Ingin Melihat Daftar Perusahaan yang Cocok dengan Profil Anda?
                 </h4>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Buka halaman khusus Rekomendasi AI untuk melihat persentase kecocokan dan langsung mengirimkan lamaran dalam 1 klik.
+                  Buka halaman khusus Rekomendasi AI untuk melihat persentase kecocokan dan langsung melamar dalam 1 klik.
                 </p>
               </div>
             </div>
@@ -911,7 +712,7 @@ function ProfileContent() {
         {isSaving && (
           <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-slate-300 space-y-2 text-xs flex items-center gap-3 shadow-lg">
             <Loader2 className="w-4 h-4 animate-spin text-emerald-400 shrink-0" />
-            <span className="font-semibold">Sedang menyimpan dan memverifikasi data profil Anda...</span>
+            <span className="font-semibold">Sedang mengevaluasi rekam jejak biodata dengan AI dan menyimpan data...</span>
           </div>
         )}
 
@@ -962,3 +763,4 @@ export default function ApplicantProfilePage() {
     </Suspense>
   );
 }
+

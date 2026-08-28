@@ -133,28 +133,26 @@ export const SEED_USERS: User[] = [
       institutionName: 'Institut Teknologi Bandung (ITB)',
       graduationYear: '2019',
       gpa: '3.82',
-      socials: {
-        linkedin: 'https://linkedin.com/in/budisantoso-dev',
-        github: 'https://github.com/budisantoso-tech',
-        instagram: '@budisantoso.codes',
-        portfolioUrl: 'https://budisantoso.dev',
-        additionalBio: 'Senior Fullstack Engineer yang berdedikasi membangun aplikasi SaaS berskala besar dan arsitektur cloud terdistribusi.'
-      },
+      bioSummary: 'Senior Fullstack Engineer yang berdedikasi membangun aplikasi SaaS berskala besar dan arsitektur cloud terdistribusi.',
       profileCompleted: true,
       aiBackgroundReport: {
-        personalitySummary: 'Budi Santoso menunjukkan integritas profesional yang tinggi, etos kerja kolaboratif, dan komunikasi online yang matang serta berorientasi pada pemecahan masalah.',
+        personalitySummary: 'Budi Santoso menunjukkan integritas profesional yang tinggi, etos kerja kolaboratif, dan komunikasi yang matang serta berorientasi pada pemecahan masalah teknis.',
+        credibilityScore: 96,
         digitalFootprintScore: 96,
-        socialMediaPresenceSummary: 'Jejak digital di LinkedIn dan GitHub sangat konsisten dengan kontribusi open-source aktif, portofolio live terverifikasi, dan reputasi publik yang bersih.',
+        careerTrajectorySummary: 'Rekam jejak karir solid dengan pengalaman engineering intensif pasca-kelulusan S1 ITB tahun 2019, linier dengan spesialisasi arsitektur cloud dan web development skala besar.',
+        socialMediaPresenceSummary: 'Rekam jejak karir solid dengan pengalaman engineering intensif pasca-kelulusan S1 ITB tahun 2019.',
+        academicAuditSummary: 'Lulusan S1 Teknik Informatika ITB dengan IPK 3.82 (Cumlaude), timeline akademik konsisten.',
+        calculatedAge: 29,
         integrityAndEthicsScore: 98,
         greenFlags: [
-          'Jejak kontribusi aktif pada repository GitHub dan penulisan artikel teknis',
-          'Profil LinkedIn kredibel dengan endorsement rekan kerja dan rekam jejak karir linier',
-          'Latar belakang pendidikan resmi terakreditasi A (ITB) dengan IPK 3.82'
+          'Latar belakang pendidikan resmi terakreditasi Unggul (ITB) dengan IPK 3.82',
+          'Nama resmi di KTP terverifikasi konsisten dengan seluruh berkas CV',
+          'Timeline kronologi kelulusan dan durasi karir sangat linier dan terstruktur'
         ],
         redFlags: [
-          'Tidak ditemukan catatan anomali atau perilaku negatif di seluruh kanal publik.'
+          'Biodata resmi dan berkas pendukung lengkap tanpa catatan anomali.'
         ],
-        hrDiscretionNotes: 'Kandidat memiliki integritas digital sangat prima. Sangat direkomendasikan untuk posisi Tech Lead atau Senior Engineer.',
+        hrDiscretionNotes: 'Kandidat memiliki integritas dan rekam jejak biodata sangat prima. Sangat direkomendasikan untuk posisi Tech Lead atau Senior Engineer.',
         generatedAt: '2025-02-18T15:00:00Z'
       },
       updatedAt: '2025-02-18T15:00:00Z'
@@ -181,27 +179,26 @@ export const SEED_USERS: User[] = [
       institutionName: 'Institut Teknologi Bandung (ITB)',
       graduationYear: '2022',
       gpa: '3.90',
-      socials: {
-        linkedin: 'https://linkedin.com/in/sitirahmawati-ai',
-        github: 'https://github.com/sitirahmawati-ml',
-        portfolioUrl: 'https://sitirahmawati.ai',
-        additionalBio: 'AI Researcher & ML Engineer yang berfokus pada LLM fine-tuning, RAG architecture, and computer vision.'
-      },
+      bioSummary: 'AI Researcher & ML Engineer yang berfokus pada LLM fine-tuning, RAG architecture, and computer vision.',
       profileCompleted: true,
       aiBackgroundReport: {
         personalitySummary: 'Siti Rahmawati memiliki antusiasme riset yang luar biasa, disiplin analitis tinggi, dan rekam jejak akademik cemerlang.',
-        digitalFootprintScore: 94,
-        socialMediaPresenceSummary: 'Profil profesional di LinkedIn dan GitHub menampilkan riset machine learning dan implementasi model AI terkini.',
+        credibilityScore: 95,
+        digitalFootprintScore: 95,
+        careerTrajectorySummary: 'Lulusan Sarjana Ilmu Komputer ITB tahun 2022 dengan fokus spesialisasi Machine Learning, Natural Language Processing, dan implementasi arsitektur AI modern.',
+        socialMediaPresenceSummary: 'Lulusan Sarjana Ilmu Komputer ITB tahun 2022 dengan fokus spesialisasi Machine Learning.',
+        academicAuditSummary: 'Lulusan S1 Ilmu Komputer ITB dengan IPK 3.90 (Summa Cumlaude), rekam jejak riset akademik terbukti.',
+        calculatedAge: 27,
         integrityAndEthicsScore: 97,
         greenFlags: [
-          'Aktif membagikan implementasi model AI dan paper review di komunitas riset',
-          'Lulusan cumlaude ITB dengan publikasi riset terapan',
-          'Jejak digital bersih dan sangat relevan dengan industri AI modern'
+          'Lulusan cumlaude ITB dengan IPK 3.90 pada jurusan Ilmu Komputer',
+          'Data identitas KTP dan ijazah konsisten dengan berkas karir',
+          'Fokus keahlian AI dan Machine Learning sangat relevan dengan kebutuhan industri'
         ],
         redFlags: [
-          'Tidak ditemukan anomali perilaku atau catatan negatif pada media sosial publik.'
+          'Biodata resmi dan berkas pendukung lengkap tanpa catatan anomali.'
         ],
-        hrDiscretionNotes: 'Kandidat memiliki talenta riset dan etika kerja luar biasa, sangat cocok untuk tim inovasi AI terdepan.',
+        hrDiscretionNotes: 'Kandidat memiliki talenta riset dan etika kerja luar biasa, sangat cocok untuk tim riset & inovasi AI.',
         generatedAt: '2025-02-19T09:15:00Z'
       },
       updatedAt: '2025-02-19T09:15:00Z'

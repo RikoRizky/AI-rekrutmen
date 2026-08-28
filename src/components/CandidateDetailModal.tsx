@@ -172,8 +172,6 @@ export default function CandidateDetailModal({
               <Sparkles className="w-4 h-4 shrink-0" />
               <span>Skrining & Radar AI</span>
             </button>
-
-            {/* Tab Background Social (Khusus HR/Admin) */}
             {!isApplicant && (
               <button
                 type="button"
@@ -185,11 +183,9 @@ export default function CandidateDetailModal({
                 }`}
               >
                 <ShieldCheck className="w-4 h-4 shrink-0" />
-                <span>Jejak Sosmed</span>
+                <span>Audit Rekam Jejak AI</span>
               </button>
             )}
-
-            {/* Tab Wawancara (Khusus HR/Admin) */}
             {!isApplicant && (
               <button
                 type="button"
@@ -203,13 +199,12 @@ export default function CandidateDetailModal({
                 <HelpCircle className="w-4 h-4 shrink-0" />
                 <span>Wawancara</span>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                  activeTab === 'questions' ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300'
+                  activeTab === 'questions' ? 'bg-white/20 text-white' : 'bg-slate-800 text-emerald-400'
                 }`}>
                   {evalRes.suggestedInterviewQuestions?.length || 0}
                 </span>
               </button>
             )}
-
             <button
               type="button"
               onClick={() => setActiveTab('documents')}
@@ -220,43 +215,42 @@ export default function CandidateDetailModal({
               }`}
             >
               <FileText className="w-4 h-4 shrink-0" />
-              <span>Berkas Dokumen</span>
-              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                activeTab === 'documents' ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300'
-              }`}>
-                {candidateDocs.length}
-              </span>
+              <span>Berkas CV ({candidateDocs.length})</span>
             </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('status')}
-              className={`flex-1 min-w-[140px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
-                activeTab === 'status'
-                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/50'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
-              }`}
-            >
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>{isApplicant ? 'Status Lamaran' : 'Keputusan HR'}</span>
-            </button>
+            {!isApplicant && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('status')}
+                className={`flex-1 min-w-[140px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+                  activeTab === 'status'
+                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/50'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                }`}
+              >
+                <ChevronRight className="w-4 h-4 shrink-0" />
+                <span>Keputusan</span>
+              </button>
+            )}
           </div>
         </div>
 
         {/* Tab Content */}
         <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 text-sm text-slate-200">
           
-          {/* TAB 1: AI SUMMARY & RADAR 5 SUMBU */}
+          {/* TAB 1: HASIL ANALISIS AI (RADAR & SUMMARY) */}
           {activeTab === 'ai-summary' && (
             <div className="space-y-6">
-              
-              {/* Executive Summary Card */}
-              <div className="p-5 sm:p-6 rounded-3xl bg-slate-950/80 border border-slate-800 space-y-3 shadow-inner">
-                <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
-                  <Sparkles className="w-5 h-5" />
-                  <span>Executive AI Summary</span>
-                </div>
-                <p className="text-slate-200 leading-relaxed text-sm">
+
+              {/* Radar Component */}
+              <AiAnalysisRadar evaluation={evalRes} />
+
+              {/* Executive Summary */}
+              <div className="p-5 rounded-3xl bg-slate-950 border border-slate-800 space-y-2">
+                <h4 className="font-bold text-white flex items-center gap-2 text-sm">
+                  <Sparkles className="w-4 h-4 text-emerald-400" />
+                  <span>Ringkasan Eksekutif AI</span>
+                </h4>
+                <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
                   {evalRes.executiveSummary}
                 </p>
                 {evalRes.recommendationReason && (
@@ -266,16 +260,14 @@ export default function CandidateDetailModal({
                 )}
               </div>
 
-              {/* Radar Chart & Multi-axis Scores */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                <div className="lg:col-span-6 flex flex-col items-center justify-center">
-                  <AiAnalysisRadar evaluation={evalRes} />
-                </div>
-
-                <div className="lg:col-span-6 space-y-4">
+              {/* Score Breakdown Bar */}
+              <div className="p-5 rounded-3xl bg-slate-950 border border-slate-800 space-y-4">
+                <h4 className="font-bold text-white text-sm">Rincian 5 Parameter Skor Evaluasi</h4>
+                
+                <div className="space-y-3">
                   <div className="space-y-1.5">
                     <div className="flex justify-between text-xs sm:text-sm font-bold">
-                      <span className="text-slate-200">1. Kesesuaian Kualifikasi Teknis</span>
+                      <span className="text-slate-200">1. Kualifikasi Teknis & Keterampilan Utama</span>
                       <span className="text-emerald-400 font-black">{evalRes.technicalScore}%</span>
                     </div>
                     <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
@@ -285,7 +277,7 @@ export default function CandidateDetailModal({
 
                   <div className="space-y-1.5">
                     <div className="flex justify-between text-xs sm:text-sm font-bold">
-                      <span className="text-slate-200">2. Relevansi Pengalaman Kerja</span>
+                      <span className="text-slate-200">2. Relevansi Pengalaman & Riwayat Karir</span>
                       <span className="text-emerald-400 font-black">{evalRes.experienceScore}%</span>
                     </div>
                     <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
@@ -295,7 +287,7 @@ export default function CandidateDetailModal({
 
                   <div className="space-y-1.5">
                     <div className="flex justify-between text-xs sm:text-sm font-bold">
-                      <span className="text-slate-200">3. Latar Belakang Pendidikan</span>
+                      <span className="text-slate-200">3. Kesesuaian Pendidikan & Latar Akademik</span>
                       <span className="text-emerald-400 font-black">{evalRes.educationScore}%</span>
                     </div>
                     <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
@@ -361,7 +353,7 @@ export default function CandidateDetailModal({
             </div>
           )}
 
-          {/* TAB 2: RIWAYAT HIDUP & JEJAK SOSMED AI (NEW HR CONFIDENTIAL TAB) */}
+          {/* TAB 2: AUDIT REKAM JEJAK & BIODATA AI (CONFIDENTIAL HR TAB) */}
           {activeTab === 'background-social' && (
             <div className="space-y-6">
               
@@ -369,46 +361,53 @@ export default function CandidateDetailModal({
               <div className="p-4 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 flex items-start gap-3">
                 <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
                 <div className="space-y-0.5">
-                  <h4 className="font-bold text-white text-xs">Laporan Intelijen Riwayat Hidup & Jejak Digital (Khusus HRD)</h4>
+                  <h4 className="font-bold text-white text-xs">Laporan Audit Rekam Jejak & Kredibilitas Biodata (Khusus HRD)</h4>
                   <p className="text-[11px] text-slate-300">
-                    Data ini dievaluasi secara otomatis oleh Gemini AI berdasarkan biodata resmi, latar belakang pendidikan, dan jejak sosial media yang dicantumkan pelamar.
+                    Sistem AI menganalisis rekam jejak, kredibilitas kronologis, dan integritas kandidat murni dari informasi biodata resmi dan berkas dokumen pelamar.
                   </p>
                 </div>
               </div>
 
-              {/* 2 Top Scores: Digital Footprint & Ethics */}
+              {/* 2 Top Scores: Biodata Credibility & Integrity */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
                   <div className="flex items-center justify-between text-slate-400 text-xs">
-                    <span>Skor Jejak Digital & Portofolio</span>
-                    <Globe className="w-4 h-4 text-emerald-400" />
+                    <span>Skor Kredibilitas & Konsistensi Biodata</span>
+                    <Award className="w-4 h-4 text-emerald-400" />
                   </div>
                   <div className="text-3xl font-black text-emerald-400">
-                    {bgReport?.digitalFootprintScore || 94}<span className="text-xs text-slate-500 font-normal">/100</span>
+                    {bgReport?.credibilityScore || bgReport?.digitalFootprintScore || 92}<span className="text-xs text-slate-500 font-normal">/100</span>
                   </div>
-                  <p className="text-[11px] text-slate-400">Tingkat transparansi & konsistensi rekam jejak online</p>
+                  <p className="text-[11px] text-slate-400">Validitas kronologi kelulusan, institusi, dan kelengkapan profil</p>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
                   <div className="flex items-center justify-between text-slate-400 text-xs">
-                    <span>Integritas & Etika Profesional</span>
-                    <Award className="w-4 h-4 text-amber-400" />
+                    <span>Integritas & Verifikasi Identitas Resmi</span>
+                    <ShieldCheck className="w-4 h-4 text-amber-400" />
                   </div>
                   <div className="text-3xl font-black text-amber-400">
-                    {bgReport?.integrityAndEthicsScore || 96}<span className="text-xs text-slate-500 font-normal">/100</span>
+                    {bgReport?.integrityAndEthicsScore || 95}<span className="text-xs text-slate-500 font-normal">/100</span>
                   </div>
-                  <p className="text-[11px] text-slate-400">Bebas dari catatan negatif atau anomali etika</p>
+                  <p className="text-[11px] text-slate-400">Kesesuaian identitas KTP resmi dengan dokumen pendukung CV</p>
                 </div>
               </div>
 
-              {/* Biodata Summary Card */}
+              {/* Biodata & Identitas Resmi Card */}
               <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
                 <h4 className="font-bold text-white flex items-center gap-2 text-xs border-b border-slate-800 pb-2">
                   <UserIcon className="w-4 h-4 text-emerald-400" />
-                  <span>Biodata Resmi Pelamar</span>
+                  <span>Identitas Resmi &amp; Biodata Pelamar (KTP)</span>
                 </h4>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-500 text-[11px]">Nama Lengkap (KTP):</span>
+                    <p className="font-bold text-white mt-0.5">
+                      {biodata?.fullName || application.applicantName}
+                    </p>
+                  </div>
+
                   {biodata?.gender && (
                     <div>
                       <span className="text-slate-500 text-[11px]">Jenis Kelamin:</span>
@@ -419,245 +418,50 @@ export default function CandidateDetailModal({
                       </p>
                     </div>
                   )}
+
                   <div>
-                    <span className="text-slate-500 text-[11px]">Tempat, Tgl Lahir:</span>
+                    <span className="text-slate-500 text-[11px]">Tempat &amp; Tgl Lahir:</span>
                     <p className="font-semibold text-white mt-0.5">
                       {biodata?.birthPlace || '-'}, {biodata?.birthDate || '-'}
+                      {bgReport?.calculatedAge !== undefined && (
+                        <span className="text-emerald-400 font-bold text-[11px] block mt-0.5">
+                          Usia: {bgReport.calculatedAge} Tahun
+                        </span>
+                      )}
                     </p>
                   </div>
+
                   <div>
-                    <span className="text-slate-500 text-[11px]">Kota Domisili:</span>
-                    <p className="font-semibold text-white mt-0.5">
-                      {biodata?.city || '-'}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 text-[11px]">Pendidikan Terakhir:</span>
+                    <span className="text-slate-500 text-[11px]">No. Telepon / WhatsApp:</span>
                     <p className="font-semibold text-emerald-400 mt-0.5">
-                      {biodata?.lastEducation || '-'} - {biodata?.educationMajor || '-'}
+                      {biodata?.phone || application.applicantPhone || '-'}
                     </p>
                   </div>
-                  <div>
-                    <span className="text-slate-500 text-[11px]">Universitas / IPK:</span>
+
+                  <div className="col-span-2">
+                    <span className="text-slate-500 text-[11px]">Kota Domisili &amp; Alamat:</span>
                     <p className="font-semibold text-white mt-0.5">
-                      {biodata?.institutionName || '-'} {biodata?.gpa ? `(${biodata.gpa})` : ''}
+                      {biodata?.city ? `${biodata.city}` : ''} {biodata?.address ? `(${biodata.address})` : '-'}
                     </p>
                   </div>
                 </div>
-
-                {biodata?.address && (
-                  <div className="pt-2 border-t border-slate-800/60 text-xs">
-                    <span className="text-slate-500 text-[11px]">Alamat Lengkap:</span>
-                    <p className="text-slate-300 mt-0.5">{biodata.address}</p>
-                  </div>
-                )}
               </div>
 
-              {/* Social Media Smart Cards — pakai platformsVerified jika ada, fallback ke customLinks */}
-              <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
-                <h4 className="font-bold text-white flex items-center gap-2 text-xs">
-                  <Share2 className="w-4 h-4 text-emerald-400" />
-                  <span>Tautan Sosial Media &amp; Jejak Digital yang Dicantumkan Pelamar</span>
-                </h4>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  {/* Prioritas: pakai platformsVerified (hasil background check AI) */}
-                  {bgReport?.platformsVerified && bgReport.platformsVerified.length > 0 ? (
-                    bgReport.platformsVerified.map((pv, idx) => {
-                      const isNotFound = pv.status === 'not_found';
-                      const isVerified = pv.status === 'verified_public';
-                      const isUrl = pv.status === 'url_provided';
-
-                      return (
-                        <div
-                          key={idx}
-                          className={`p-3 rounded-xl border transition-colors flex items-start justify-between gap-2 group ${
-                            isNotFound
-                              ? 'bg-red-950/20 border-red-500/30'
-                              : isVerified
-                              ? 'bg-emerald-950/10 border-emerald-500/30 hover:border-emerald-400/50'
-                              : 'bg-slate-900 border-slate-800 hover:border-emerald-500/30'
-                          }`}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 mb-0.5">
-                              <span className="text-[10px] text-slate-400 font-semibold">{pv.platform}</span>
-                              {isVerified && (
-                                <span className="text-[9px] px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full font-bold">✔ Verified</span>
-                              )}
-                              {isUrl && (
-                                <span className="text-[9px] px-1.5 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full font-bold">🔗 URL</span>
-                              )}
-                              {pv.status === 'username_provided' && (
-                                <span className="text-[9px] px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full font-bold">@ Username</span>
-                              )}
-                              {isNotFound && (
-                                <span className="text-[9px] px-1.5 py-0.5 bg-red-500/15 text-red-400 border border-red-500/20 rounded-full font-bold">❌ Tidak Ditemukan</span>
-                              )}
-                            </div>
-                            <span className={`text-xs font-mono truncate block max-w-[200px] ${
-                              isNotFound ? 'text-red-300 line-through opacity-60' : 'text-white group-hover:text-emerald-400'
-                            }`}>
-                              {pv.urlOrUsername}
-                            </span>
-                            {isNotFound && (
-                              <p className="text-[10px] text-red-400 mt-1 leading-relaxed">
-                                Profil dengan username &ldquo;{pv.urlOrUsername}&rdquo; tidak berhasil ditemukan di {pv.platform}. Silakan verifikasi manual di aplikasi {pv.platform} langsung.
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Action button */}
-                          {!isNotFound ? (
-                            <a
-                              href={pv.resolvedUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-colors shrink-0 mt-0.5"
-                              title={`Buka ${pv.platform}`}
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                            </a>
-                          ) : (
-                            <div className="p-1.5 shrink-0 mt-0.5">
-                              <AlertTriangle className="w-4 h-4 text-red-400" />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                  ) : (
-                    /* Fallback: pakai customLinks biasa jika platformsVerified belum ada */
-                    biodata?.socials?.customLinks && biodata.socials.customLinks.length > 0 ? (
-                      biodata.socials.customLinks
-                        .filter(soc => soc.urlOrUsername.trim())
-                        .map((soc, idx) => {
-                          const isUrl = soc.urlOrUsername.startsWith('http');
-                          const platformLower = soc.platform.toLowerCase();
-                          const baseUrls: Record<string, string> = {
-                            'linkedin': 'https://linkedin.com/in/',
-                            'github': 'https://github.com/',
-                            'instagram': 'https://www.instagram.com/',
-                            'tiktok': 'https://www.tiktok.com/@',
-                            'facebook': 'https://facebook.com/',
-                            'twitter (x)': 'https://x.com/',
-                            'youtube': 'https://www.youtube.com/@',
-                          };
-                          const clean = soc.urlOrUsername.replace(/^@/, '');
-                          const linkHref = isUrl ? soc.urlOrUsername : (baseUrls[platformLower] ? `${baseUrls[platformLower]}${clean}` : `https://${clean}`);
-
-                          return (
-                            <div key={idx} className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/40 transition-colors flex items-center justify-between group">
-                              <div className="min-w-0 pr-2">
-                                <span className="text-[10px] text-slate-400 block font-semibold">{soc.platform}</span>
-                                <span className="text-xs text-white font-mono truncate max-w-[220px] block group-hover:text-emerald-400">
-                                  {soc.urlOrUsername}
-                                </span>
-                              </div>
-                              <a href={linkHref} target="_blank" rel="noreferrer"
-                                className="p-1 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-colors shrink-0">
-                                <ExternalLink className="w-4 h-4" />
-                              </a>
-                            </div>
-                          );
-                        })
-                    ) : (
-                      <p className="col-span-2 text-slate-500 text-xs text-center py-4">Tidak ada tautan sosial media yang dicantumkan.</p>
-                    )
-                  )}
-                </div>
-              </div>
-
-
-
-              {/* GitHub Real Stats Card */}
-              {bgReport?.githubStats && (
-                <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-white flex items-center gap-2 text-xs">
-                      <GitBranch className="w-4 h-4 text-emerald-400" />
-                      <span>GitHub — Data Real dari API</span>
-                    </h4>
-                    <span className="text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full font-bold">
-                      ✦ Verified Live Data
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-center">
-                      <GitBranch className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
-                      <div className="text-xl font-black text-white">{bgReport.githubStats.publicRepos}</div>
-                      <div className="text-[10px] text-slate-400">Repo Publik</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-center">
-                      <Star className="w-4 h-4 text-amber-400 mx-auto mb-1" />
-                      <div className="text-xl font-black text-white">{bgReport.githubStats.totalStars}</div>
-                      <div className="text-[10px] text-slate-400">Total Stars</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-center">
-                      <Users className="w-4 h-4 text-blue-400 mx-auto mb-1" />
-                      <div className="text-xl font-black text-white">{bgReport.githubStats.followers}</div>
-                      <div className="text-[10px] text-slate-400">Followers</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-center">
-                      <Activity className="w-4 h-4 text-violet-400 mx-auto mb-1" />
-                      <div className="text-[11px] font-black text-white">
-                        {bgReport.githubStats.lastActive
-                          ? new Date(bgReport.githubStats.lastActive).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' })
-                          : 'N/A'}
-                      </div>
-                      <div className="text-[10px] text-slate-400">Push Terakhir</div>
-                    </div>
-                  </div>
-
-                  {bgReport.githubStats.topLanguages.length > 0 && (
-                    <div className="pt-2 border-t border-slate-800">
-                      <span className="text-[10px] text-slate-500 font-semibold block mb-2">BAHASA PEMROGRAMAN DOMINAN (berdasarkan repo):</span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {bgReport.githubStats.topLanguages.map((lang, i) => (
-                          <span key={i} className="px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold flex items-center gap-1">
-                            <Code2 className="w-3 h-3" />
-                            {lang}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {bgReport.githubStats.bio && (
-                    <div className="pt-2 border-t border-slate-800 text-xs">
-                      <span className="text-[10px] text-slate-500 font-semibold block mb-1">BIO GITHUB:</span>
-                      <p className="text-slate-300 italic">&ldquo;{bgReport.githubStats.bio}&rdquo;</p>
-                    </div>
-                  )}
-
-                  <a
-                    href={bgReport.githubStats.profileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 text-slate-300 hover:text-emerald-400 transition-colors text-xs font-semibold"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Buka Profil GitHub @{bgReport.githubStats.username}
-                  </a>
-                </div>
-              )}
-
-              {/* Name Verification Result */}
+              {/* Name Verification Result Card */}
               {bgReport?.nameVerificationResult && (
                 <div className={`p-4 rounded-2xl border space-y-2 text-xs ${
                   bgReport.nameVerificationResult.nameFoundInCv
                     ? 'bg-emerald-950/20 border-emerald-500/30'
-                    : 'bg-red-950/20 border-red-500/30'
+                    : 'bg-amber-950/20 border-amber-500/30'
                 }`}>
                   <h4 className={`font-bold flex items-center gap-2 text-xs ${
-                    bgReport.nameVerificationResult.nameFoundInCv ? 'text-emerald-400' : 'text-red-400'
+                    bgReport.nameVerificationResult.nameFoundInCv ? 'text-emerald-400' : 'text-amber-400'
                   }`}>
                     {bgReport.nameVerificationResult.nameFoundInCv
                       ? <BadgeCheck className="w-4 h-4" />
-                      : <XCircle className="w-4 h-4" />
+                      : <AlertTriangle className="w-4 h-4" />
                     }
-                    <span>Verifikasi Nama KTP ↔ Dokumen CV</span>
+                    <span>Cross-Check Nama KTP ↔ Dokumen CV</span>
                   </h4>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -665,38 +469,80 @@ export default function CandidateDetailModal({
                       <span className="font-bold text-white">{bgReport.nameVerificationResult.nameInBiodata}</span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-500 block">Status Verifikasi:</span>
-                      <span className={`font-bold ${bgReport.nameVerificationResult.nameFoundInCv ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {bgReport.nameVerificationResult.nameFoundInCv ? '✅ Ditemukan di CV' : '❌ Tidak Ditemukan'}
+                      <span className="text-[10px] text-slate-500 block">Status Verifikasi CV:</span>
+                      <span className={`font-bold ${bgReport.nameVerificationResult.nameFoundInCv ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        {bgReport.nameVerificationResult.nameFoundInCv ? '✅ Terverifikasi di CV' : '⚠️ Perlu Konfirmasi Manual'}
                       </span>
                     </div>
                   </div>
-                  <p className="text-slate-300 leading-relaxed border-t border-slate-800/60 pt-2">
+                  <p className="text-slate-300 leading-relaxed border-t border-slate-800/60 pt-2 text-[11px]">
                     {bgReport.nameVerificationResult.verificationNote}
                   </p>
                 </div>
               )}
 
+              {/* Riwayat Pendidikan & Audit Akademik Card */}
+              <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                <h4 className="font-bold text-white flex items-center gap-2 text-xs border-b border-slate-800 pb-2">
+                  <GraduationCap className="w-4 h-4 text-emerald-400" />
+                  <span>Audit Riwayat Pendidikan &amp; Akademik</span>
+                </h4>
 
-              {/* AI Personality & Social Media Audit Summary */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-500 text-[11px]">Jenjang Pendidikan:</span>
+                    <p className="font-semibold text-emerald-400 mt-0.5">{biodata?.lastEducation || '-'}</p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 text-[11px]">Institusi / Universitas:</span>
+                    <p className="font-semibold text-white mt-0.5">{biodata?.institutionName || '-'}</p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 text-[11px]">Jurusan / Prodi:</span>
+                    <p className="font-semibold text-white mt-0.5">{biodata?.educationMajor || '-'}</p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 text-[11px]">Tahun Lulus / IPK:</span>
+                    <p className="font-semibold text-white mt-0.5">
+                      {biodata?.graduationYear || '-'} {biodata?.gpa ? `(IPK: ${biodata.gpa})` : ''}
+                    </p>
+                  </div>
+                </div>
+
+                {bgReport?.academicAuditSummary && (
+                  <div className="pt-2 border-t border-slate-800 text-xs">
+                    <span className="text-[10px] text-slate-500 font-semibold block mb-1">EVALUASI AKADEMIK AI:</span>
+                    <p className="text-slate-300 leading-relaxed">{bgReport.academicAuditSummary}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Ringkasan Profil & Rekam Jejak Karir */}
               <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
                 <h4 className="font-bold text-emerald-400 flex items-center gap-2 text-xs">
                   <Sparkles className="w-4 h-4" />
-                  <span>Sintesis AI — Berdasarkan Data yang Tersedia</span>
+                  <span>Sintesis AI — Analisis Rekam Jejak &amp; Karakter Profesional</span>
                 </h4>
 
                 <div className="space-y-3 text-xs leading-relaxed">
-                  <div className="p-3 rounded-xl bg-slate-900 border border-slate-800/80">
-                    <strong className="text-white block mb-1">Karakter & Profesionalitas:</strong>
+                  {(biodata?.bioSummary || biodata?.socials?.additionalBio) && (
+                    <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800/80">
+                      <strong className="text-white block mb-1 text-[11px]">Ringkasan Profil yang Ditulis Pelamar:</strong>
+                      <p className="text-slate-300 italic">&ldquo;{biodata.bioSummary || biodata.socials?.additionalBio}&rdquo;</p>
+                    </div>
+                  )}
+
+                  <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800/80">
+                    <strong className="text-emerald-400 block mb-1 text-[11px]">Analisis Rekam Jejak &amp; Kontinuitas Karir:</strong>
                     <p className="text-slate-300">
-                      {bgReport?.personalitySummary || `${application.applicantName} memiliki profil yang tersedia untuk evaluasi lebih lanjut.`}
+                      {bgReport?.careerTrajectorySummary || bgReport?.socialMediaPresenceSummary || 'Rekam jejak karir dan latar belakang akademik menunjukkan profil pelamar yang terstruktur.'}
                     </p>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-slate-900 border border-slate-800/80">
-                    <strong className="text-white block mb-1">Ringkasan Jejak Digital:</strong>
+                  <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800/80">
+                    <strong className="text-white block mb-1 text-[11px]">Karakter &amp; Profil Profesional:</strong>
                     <p className="text-slate-300">
-                      {bgReport?.socialMediaPresenceSummary || 'Tautan sosial media yang dicantumkan perlu diverifikasi manual oleh HR.'}
+                      {bgReport?.personalitySummary || `${application.applicantName} memiliki profil biodata resmi yang terverifikasi.`}
                     </p>
                   </div>
                 </div>
@@ -711,7 +557,7 @@ export default function CandidateDetailModal({
                   </h4>
                   <ul className="space-y-1.5 text-slate-300 text-xs">
                     {(bgReport?.greenFlags || [
-                      'Data profil tersedia untuk evaluasi'
+                      'Data biodata resmi terisi lengkap'
                     ]).map((gf, i) => (
                       <li key={i} className="flex items-start gap-2">
                         <span className="text-emerald-400 mt-0.5">✔</span>
@@ -743,14 +589,13 @@ export default function CandidateDetailModal({
               <div className="p-4 rounded-2xl bg-amber-950/20 border border-amber-500/30 space-y-1 text-xs">
                 <span className="font-bold text-amber-400 block">Catatan Rahasia Evaluator AI untuk HR:</span>
                 <p className="text-slate-300 leading-relaxed">
-                  {bgReport?.hrDiscretionNotes || 'Lakukan verifikasi manual terhadap semua tautan sosial media yang dicantumkan kandidat.'}
+                  {bgReport?.hrDiscretionNotes || 'Data biodata resmi konsisten. Lakukan verifikasi berkas fisik pada tahap wawancara.'}
                 </p>
               </div>
 
             </div>
           )}
 
-          {/* TAB 3: CUSTOM INTERVIEW QUESTIONS (Khusus HR) */}
           {activeTab === 'questions' && !isApplicant && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
