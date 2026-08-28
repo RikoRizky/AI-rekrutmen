@@ -158,12 +158,12 @@ model AiEvaluation {
   id                         String          @id @default(cuid())
   applicationId              String          @unique
   application                Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  overallScore               Int
-  technicalScore             Int
-  experienceScore            Int
-  educationScore             Int
-  motivationScore            Int
-  cultureFitScore            Int?
+  overallScore               Float
+  technicalScore             Float
+  experienceScore            Float
+  educationScore             Float
+  motivationScore            Float
+  cultureFitScore            Float?
   fitLevel                   String
   recommendation             String
   executiveSummary           String          @db.Text

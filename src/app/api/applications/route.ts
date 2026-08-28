@@ -156,8 +156,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Create Application
-    const applicationId = `app-${Date.now()}`;
+    // Create or Upsert Application
+    const applicationId = body.id || `app-${Date.now()}`;
+    
+    // Remove any existing duplicate record with same ID to ensure clean state
+    await prisma.application.deleteMany({
+      where: { id: applicationId }
+    }).catch(() => {});
+
     const newApplication = await prisma.application.create({
       data: {
         id: applicationId,
@@ -195,33 +201,39 @@ export async function POST(req: NextRequest) {
 
     // Create AI Evaluation
     if (aiEvaluation) {
-      await prisma.aiEvaluation.create({
-        data: {
-          id: `ai-${newApplication.id}`,
-          applicationId: newApplication.id,
-          overallScore: aiEvaluation.overallScore || 0,
-          technicalScore: aiEvaluation.technicalScore || 0,
-          experienceScore: aiEvaluation.experienceScore || 0,
-          educationScore: aiEvaluation.educationScore || 0,
-          motivationScore: aiEvaluation.motivationScore || 0,
-          cultureFitScore: aiEvaluation.cultureFitScore || null,
-          fitLevel: aiEvaluation.fitLevel || 'Moderate Match',
-          recommendation: aiEvaluation.recommendation || 'CONSIDER',
-          executiveSummary: aiEvaluation.executiveSummary || '',
-          recommendationReason: aiEvaluation.recommendationReason || '',
-          strengths: aiEvaluation.strengths || [],
-          gaps: aiEvaluation.gaps || [],
-          matchedSkills: aiEvaluation.matchedSkills || [],
-          missingSkills: aiEvaluation.missingSkills || [],
-          additionalSkills: aiEvaluation.additionalSkills || [],
-          suggestedQuestions: aiEvaluation.suggestedInterviewQuestions || [],
-          detailedQuestions: aiEvaluation.detailedQuestions ? JSON.parse(JSON.stringify(aiEvaluation.detailedQuestions)) : null,
-          riskFactors: aiEvaluation.riskFactors || [],
-          isRealAi: aiEvaluation.isRealAi ?? true,
-          modelUsed: aiEvaluation.modelUsed || 'gemini-2.5-flash',
-          latencyMs: aiEvaluation.latencyMs || null,
-        }
-      });
+      try {
+        await prisma.aiEvaluation.create({
+          data: {
+            id: `ai-${newApplication.id}`,
+            applicationId: newApplication.id,
+            overallScore: Number(aiEvaluation.overallScore) || 0,
+            technicalScore: Number(aiEvaluation.technicalScore) || 0,
+            experienceScore: Number(aiEvaluation.experienceScore) || 0,
+            educationScore: Number(aiEvaluation.educationScore) || 0,
+            motivationScore: Number(aiEvaluation.motivationScore) || 0,
+            cultureFitScore: aiEvaluation.cultureFitScore !== undefined && aiEvaluation.cultureFitScore !== null
+              ? Number(aiEvaluation.cultureFitScore)
+              : null,
+            fitLevel: aiEvaluation.fitLevel || 'Moderate Match',
+            recommendation: aiEvaluation.recommendation || 'CONSIDER',
+            executiveSummary: aiEvaluation.executiveSummary || '',
+            recommendationReason: aiEvaluation.recommendationReason || '',
+            strengths: Array.isArray(aiEvaluation.strengths) ? aiEvaluation.strengths : [],
+            gaps: Array.isArray(aiEvaluation.gaps) ? aiEvaluation.gaps : [],
+            matchedSkills: Array.isArray(aiEvaluation.matchedSkills) ? aiEvaluation.matchedSkills : [],
+            missingSkills: Array.isArray(aiEvaluation.missingSkills) ? aiEvaluation.missingSkills : [],
+            additionalSkills: Array.isArray(aiEvaluation.additionalSkills) ? aiEvaluation.additionalSkills : [],
+            suggestedQuestions: Array.isArray(aiEvaluation.suggestedInterviewQuestions) ? aiEvaluation.suggestedInterviewQuestions : [],
+            detailedQuestions: aiEvaluation.detailedQuestions ? JSON.parse(JSON.stringify(aiEvaluation.detailedQuestions)) : null,
+            riskFactors: Array.isArray(aiEvaluation.riskFactors) ? aiEvaluation.riskFactors : [],
+            isRealAi: aiEvaluation.isRealAi ?? true,
+            modelUsed: aiEvaluation.modelUsed || 'gemini-2.5-flash',
+            latencyMs: aiEvaluation.latencyMs ? Math.round(Number(aiEvaluation.latencyMs)) : null,
+          }
+        });
+      } catch (aiErr) {
+        console.error('Error saving aiEvaluation to database:', aiErr);
+      }
     }
 
     return NextResponse.json({

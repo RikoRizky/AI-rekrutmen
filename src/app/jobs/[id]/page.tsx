@@ -76,11 +76,15 @@ export default function JobDetailPage() {
 
       // Check if candidate already applied to this specific job
       const apps = getAllApplications();
-      const match = apps.find(
+      const userMatches = apps.filter(
         (a) =>
           a.jobId === jobId &&
-          (a.userId === user.id || a.applicantEmail.toLowerCase() === user.email.toLowerCase())
+          (a.userId === user.id || a.applicantEmail?.toLowerCase() === user.email.toLowerCase())
       );
+      // Urutkan tanggal melamar paling baru (descending) agar selalu konsisten
+      userMatches.sort((a, b) => new Date(b.appliedDate).getTime() - new Date(a.appliedDate).getTime());
+      const match = userMatches[0];
+
       if (match) {
         setExistingApplication(repairApplicationEvaluation(match));
       } else {

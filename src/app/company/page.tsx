@@ -221,21 +221,31 @@ export default function CompanyPortalPage() {
     };
   }, []);
 
-  // Filter applicants for the selected job
+  // Filter applicants for the selected job (deduplicated by candidate to ensure latest AI score is always used)
   const jobApplicants = selectedJob
-    ? applications
-        .filter((app) => app.jobId === selectedJob.id)
-        .filter((app) => {
-          const matchFit = selectedFitLevel === 'all' || (app.aiEvaluation?.fitLevel || 'Moderate Match') === selectedFitLevel;
-          const matchStatus = selectedStatus === 'all' || app.status === selectedStatus;
-          const matchSearch =
-            app.applicantName.toLowerCase().includes(candidateSearchQuery.toLowerCase()) ||
-            app.applicantEmail.toLowerCase().includes(candidateSearchQuery.toLowerCase()) ||
-            (app.applicantHeadline && app.applicantHeadline.toLowerCase().includes(candidateSearchQuery.toLowerCase()));
+    ? (() => {
+        const appsForJob = applications.filter((app) => app.jobId === selectedJob.id);
+        const uniqueMap = new Map<string, Application>();
+        for (const app of appsForJob) {
+          const key = (app.applicantEmail || '').toLowerCase().trim() || app.userId || app.id;
+          const existing = uniqueMap.get(key);
+          if (!existing || new Date(app.appliedDate).getTime() > new Date(existing.appliedDate).getTime()) {
+            uniqueMap.set(key, app);
+          }
+        }
+        return Array.from(uniqueMap.values())
+          .filter((app) => {
+            const matchFit = selectedFitLevel === 'all' || (app.aiEvaluation?.fitLevel || 'Moderate Match') === selectedFitLevel;
+            const matchStatus = selectedStatus === 'all' || app.status === selectedStatus;
+            const matchSearch =
+              app.applicantName.toLowerCase().includes(candidateSearchQuery.toLowerCase()) ||
+              app.applicantEmail.toLowerCase().includes(candidateSearchQuery.toLowerCase()) ||
+              (app.applicantHeadline && app.applicantHeadline.toLowerCase().includes(candidateSearchQuery.toLowerCase()));
 
-          return matchFit && matchStatus && matchSearch;
-        })
-        .sort((a, b) => (b.aiEvaluation?.overallScore ?? 0) - (a.aiEvaluation?.overallScore ?? 0))
+            return matchFit && matchStatus && matchSearch;
+          })
+          .sort((a, b) => (b.aiEvaluation?.overallScore ?? 0) - (a.aiEvaluation?.overallScore ?? 0));
+      })()
     : [];
 
   // Statistics
