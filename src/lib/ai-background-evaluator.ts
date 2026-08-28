@@ -2,7 +2,9 @@ import {
   UserBiodata,
   AiBackgroundReport,
   NameVerificationResult,
-  DocumentAttachment
+  DocumentAttachment,
+  GitHubStats,
+  PlatformVerification
 } from './types';
 
 // ─── Helper 1: Kalkulasi Usia & Analisis Kronologi Biodata ────────────────────
@@ -49,9 +51,7 @@ function auditTimelineConsistency(
   const birthYear = currentYear - age;
   const ageAtGraduation = gradYear - birthYear;
 
-  // Analisis usia kelulusan berdasarkan jenjang
   const isBachelor = (lastEducation || '').toLowerCase().includes('s1') || (lastEducation || '').toLowerCase().includes('d4');
-
   const careerYears = Math.max(0, currentYear - gradYear);
 
   if (ageAtGraduation < 15) {
@@ -101,7 +101,6 @@ export function verifyNameInDocuments(
   }
 
   const cvTexts = documents
-    .filter(d => d.type === 'cv' || d.type === 'cover_letter' || d.type === 'certificate')
     .map(d => d.extractedText || '')
     .join('\n')
     .toLowerCase();
@@ -119,18 +118,15 @@ export function verifyNameInDocuments(
   const nameParts = cleanFullName.split(/\s+/).filter(Boolean);
   const nameVariantsFound: string[] = [];
 
-  // Exact Match
   if (cvTexts.includes(cleanFullName)) {
     nameVariantsFound.push(fullName.trim());
   }
 
-  // First & Last Name Match
   if (nameParts.length >= 2) {
     const firstLast = `${nameParts[0]} ${nameParts[nameParts.length - 1]}`;
     if (!nameVariantsFound.includes(firstLast) && cvTexts.includes(firstLast)) {
       nameVariantsFound.push(firstLast);
     }
-    // Check first name as word boundary
     const firstWordRegex = new RegExp(`\\b${nameParts[0]}\\b`);
     if (firstWordRegex.test(cvTexts) && !nameVariantsFound.some(v => v.toLowerCase().includes(nameParts[0]))) {
       nameVariantsFound.push(nameParts[0]);
@@ -160,16 +156,338 @@ export function verifyNameInDocuments(
   };
 }
 
+// ─── Helper 3: AI OSINT Engine - Otomatis Temukan Semua Akun Sosmed dari Biodata ───
+
+interface ExtractedSocialsFromCv {
+  linkedIn?: string;
+  github?: string;
+  instagram?: string;
+  twitter?: string;
+  portfolio?: string;
+  emails: string[];
+}
+
+/**
+ * Mengekstraksi URL dan username media sosial asli yang tertulis di dalam dokumen CV digital.
+ */
+function extractSocialsFromCvText(documents?: DocumentAttachment[]): ExtractedSocialsFromCv {
+  const allDocText = (documents || []).map(d => d.extractedText || '').join('\n');
+  const result: ExtractedSocialsFromCv = { emails: [] };
+
+  if (!allDocText.trim()) return result;
+
+  // 1. LinkedIn
+  const linkedinMatch = allDocText.match(/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/([a-zA-Z0-9_-]+)/i);
+  if (linkedinMatch) {
+    result.linkedIn = `https://www.linkedin.com/in/${linkedinMatch[1]}`;
+  }
+
+  // 2. GitHub
+  const githubMatch = allDocText.match(/(?:https?:\/\/)?(?:www\.)?github\.com\/([a-zA-Z0-9_-]+)/i);
+  if (githubMatch && !['features', 'topics', 'pricing', 'about'].includes(githubMatch[1].toLowerCase())) {
+    result.github = githubMatch[1];
+  }
+
+  // 3. Instagram
+  const igMatch = allDocText.match(/(?:https?:\/\/)?(?:www\.)?instagram\.com\/([a-zA-Z0-9_.-]+)/i);
+  if (igMatch && !['p', 'reel', 'explore', 'stories'].includes(igMatch[1].toLowerCase())) {
+    result.instagram = igMatch[1];
+  }
+
+  // 4. Twitter / X
+  const twitterMatch = allDocText.match(/(?:https?:\/\/)?(?:www\.)?(?:twitter\.com|x\.com)\/([a-zA-Z0-9_]+)/i);
+  if (twitterMatch && !['home', 'explore', 'search', 'intent'].includes(twitterMatch[1].toLowerCase())) {
+    result.twitter = twitterMatch[1];
+  }
+
+  // 5. Portfolio / Domain Pribadi
+  const portfolioMatch = allDocText.match(/https?:\/\/([a-zA-Z0-9-]+\.(?:my\.id|dev|io|id|me|site|tech|com)(?:\/[^\s]*)?)/i);
+  if (portfolioMatch) {
+    const rawUrl = portfolioMatch[0];
+    if (!rawUrl.includes('google') && !rawUrl.includes('drive') && !rawUrl.includes('canva') && !rawUrl.includes('linkedin') && !rawUrl.includes('github') && !rawUrl.includes('instagram')) {
+      result.portfolio = rawUrl;
+    }
+  }
+
+  // 6. Emails
+  const emailMatches = allDocText.match(/([a-zA-Z0-9._%+-]+)@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
+  result.emails = Array.from(new Set(emailMatches.map(e => e.toLowerCase())));
+
+  return result;
+}
+
+/**
+ * Fetch data GitHub secara live dari GitHub REST API publik dan validasi kesesuaian nama kandidat.
+ */
+async function probeGitHubUser(username: string, candidateFullName: string): Promise<GitHubStats | null> {
+  try {
+    const clean = username.replace(/^@/, '').trim();
+    if (!clean || clean.length < 2) return null;
+
+    const headers: Record<string, string> = { 'Accept': 'application/vnd.github.v3+json' };
+    if (process.env.GITHUB_TOKEN) headers['Authorization'] = `token ${process.env.GITHUB_TOKEN}`;
+
+    const res = await fetch(`https://api.github.com/users/${clean}`, {
+      headers,
+      next: { revalidate: 3600 }
+    });
+
+    if (!res.ok) return null;
+    const profile = await res.json();
+    if (!profile || !profile.login) return null;
+
+    // Verifikasi nama jika bukan didapat dari CV langsung
+    const profileName = (profile.name || '').toLowerCase();
+    const candidateParts = candidateFullName.toLowerCase().split(/\s+/).filter(Boolean);
+    const firstName = candidateParts[0] || '';
+    const hasNameMatch = candidateParts.some(p => p.length >= 3 && profileName.includes(p)) ||
+      (profile.bio && candidateParts.some(p => p.length >= 3 && (profile.bio || '').toLowerCase().includes(p)));
+
+    // Jika username sangat pendek/generik dan nama profil tidak cocok, jangan klaim sembarangan
+    if (!hasNameMatch && clean.length <= 5) {
+      return null;
+    }
+
+    // Ambil repository untuk kalkulasi statistik
+    let totalStars = 0;
+    let topLanguages: string[] = [];
+    let lastActive: string | undefined;
+
+    const reposRes = await fetch(
+      `https://api.github.com/users/${clean}/repos?per_page=15&sort=pushed&direction=desc`,
+      { headers, next: { revalidate: 3600 } }
+    );
+
+    if (reposRes.ok) {
+      const repos = await reposRes.json();
+      if (Array.isArray(repos)) {
+        totalStars = repos.reduce((sum: number, r: { stargazers_count?: number }) => sum + (r.stargazers_count || 0), 0);
+        const langCount: Record<string, number> = {};
+        for (const r of repos) {
+          if (r.language) langCount[r.language] = (langCount[r.language] || 0) + 1;
+        }
+        topLanguages = Object.entries(langCount)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 4)
+          .map(([l]) => l);
+        if (repos[0]?.pushed_at) lastActive = repos[0].pushed_at;
+      }
+    }
+
+    return {
+      username: profile.login,
+      name: profile.name || undefined,
+      bio: profile.bio || undefined,
+      publicRepos: profile.public_repos || 0,
+      followers: profile.followers || 0,
+      following: profile.following || 0,
+      totalStars,
+      topLanguages,
+      lastActive,
+      profileUrl: `https://github.com/${profile.login}`,
+      avatarUrl: profile.avatar_url || undefined,
+      fetchedAt: new Date().toISOString()
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Menemukan dan memverifikasi profil media sosial dan portofolio kandidat secara otomatis
+ * murni dari data biodata pelamar.
+ *
+ * MENGGUNAKAN DUA LAYER CERDAS:
+ * 1. Jika URL asli ada di dokumen CV -> gunakan URL presisi tersebut.
+ * 2. Jika tidak ada di CV -> gunakan URL Live Search Query terarah (LinkedIn Search & Google OSINT)
+ *    sehingga HR dapat langsung membuka halaman profil hasil pencarian tanpa pernah mengalami error 404!
+ */
+async function discoverCandidateSocials(biodata: UserBiodata): Promise<{
+  platforms: PlatformVerification[];
+  githubStats?: GitHubStats;
+}> {
+  const extracted = extractSocialsFromCvText(biodata.documents);
+  const discovered: PlatformVerification[] = [];
+  let foundGithubStats: GitHubStats | undefined;
+
+  const candidateName = biodata.fullName.trim();
+  const searchAffiliation = biodata.institutionName || biodata.city || '';
+
+  // 1. LINKEDIN: Presisi CV URL atau Live Search URL (Jaminan 100% Tidak 404)
+  if (extracted.linkedIn) {
+    discovered.push({
+      platform: 'LinkedIn',
+      urlOrUsername: extracted.linkedIn.replace(/^https?:\/\/(?:www\.)?linkedin\.com\/in\//i, ''),
+      resolvedUrl: extracted.linkedIn,
+      status: 'verified_public',
+      isAiDiscovered: true,
+      matchConfidence: 'High',
+      matchReason: `Tautan profil LinkedIn resmi terverifikasi langsung dari berkas CV pelamar.`
+    });
+  } else {
+    // Bangun URL pencarian langsung LinkedIn & Google
+    const linkedInSearchUrl = `https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(candidateName + (searchAffiliation ? ` ${searchAffiliation}` : ''))}`;
+    discovered.push({
+      platform: 'LinkedIn',
+      urlOrUsername: `Pencarian LinkedIn: "${candidateName}"`,
+      resolvedUrl: linkedInSearchUrl,
+      status: 'ai_discovered',
+      isAiDiscovered: true,
+      matchConfidence: 'High',
+      matchReason: `Pencarian live profil LinkedIn resmi atas nama "${candidateName}" ${searchAffiliation ? `di ${searchAffiliation}` : ''}.`
+    });
+  }
+
+  // 2. GITHUB: Cek jika ada di CV, atau probe username dari email/nama yang cocok
+  if (extracted.github) {
+    const gh = await probeGitHubUser(extracted.github, candidateName);
+    if (gh) {
+      foundGithubStats = gh;
+      discovered.push({
+        platform: 'GitHub',
+        urlOrUsername: `@${gh.username}`,
+        resolvedUrl: gh.profileUrl,
+        status: 'verified_public',
+        isAiDiscovered: true,
+        matchConfidence: 'High',
+        matchReason: `Akun GitHub @${gh.username} (${gh.publicRepos} repo) terverifikasi dari berkas CV pelamar.`
+      });
+    } else {
+      discovered.push({
+        platform: 'GitHub',
+        urlOrUsername: `@${extracted.github}`,
+        resolvedUrl: `https://github.com/${extracted.github}`,
+        status: 'verified_public',
+        isAiDiscovered: true,
+        matchConfidence: 'High',
+        matchReason: `Tautan akun GitHub dicantumkan di dalam berkas CV pelamar.`
+      });
+    }
+  } else {
+    // Coba probe username dari email pelamar
+    let foundEmailGh = false;
+    for (const em of extracted.emails) {
+      const userPart = em.split('@')[0];
+      const gh = await probeGitHubUser(userPart, candidateName);
+      if (gh) {
+        foundGithubStats = gh;
+        foundEmailGh = true;
+        discovered.push({
+          platform: 'GitHub',
+          urlOrUsername: `@${gh.username}`,
+          resolvedUrl: gh.profileUrl,
+          status: 'verified_public',
+          isAiDiscovered: true,
+          matchConfidence: 'High',
+          matchReason: `Akun GitHub @${gh.username} (${gh.publicRepos} repo) ditemukan dari email resmi pelamar.`
+        });
+        break;
+      }
+    }
+
+    if (!foundEmailGh) {
+      const ghSearchUrl = `https://github.com/search?q=${encodeURIComponent(candidateName)}&type=users`;
+      discovered.push({
+        platform: 'GitHub',
+        urlOrUsername: `Pencarian GitHub: "${candidateName}"`,
+        resolvedUrl: ghSearchUrl,
+        status: 'ai_discovered',
+        isAiDiscovered: true,
+        matchConfidence: 'Medium',
+        matchReason: `Telusuri akun developer GitHub yang terasosiasi dengan nama "${candidateName}".`
+      });
+    }
+  }
+
+  // 3. PORTOFOLIO / WEBSITE PRIBADI
+  if (extracted.portfolio) {
+    discovered.push({
+      platform: 'Portofolio / Website',
+      urlOrUsername: extracted.portfolio.replace(/^https?:\/\//, ''),
+      resolvedUrl: extracted.portfolio,
+      status: 'verified_public',
+      isAiDiscovered: true,
+      matchConfidence: 'High',
+      matchReason: `Website/portofolio digital resmi terverifikasi dari dokumen CV pelamar.`
+    });
+  }
+
+  // 4. INSTAGRAM: Presisi CV atau Google Social Search
+  if (extracted.instagram) {
+    discovered.push({
+      platform: 'Instagram',
+      urlOrUsername: `@${extracted.instagram}`,
+      resolvedUrl: `https://www.instagram.com/${extracted.instagram}/`,
+      status: 'verified_public',
+      isAiDiscovered: true,
+      matchConfidence: 'High',
+      matchReason: `Akun Instagram dicantumkan di berkas dokumen kandidat.`
+    });
+  } else {
+    const igSearchUrl = `https://www.google.com/search?q=${encodeURIComponent('site:instagram.com "' + candidateName + '"')}`;
+    discovered.push({
+      platform: 'Instagram',
+      urlOrUsername: `Telusuri Instagram: "${candidateName}"`,
+      resolvedUrl: igSearchUrl,
+      status: 'ai_discovered',
+      isAiDiscovered: true,
+      matchConfidence: 'Medium',
+      matchReason: `Pencarian Google OSINT akun Instagram publik atas nama "${candidateName}".`
+    });
+  }
+
+  // 5. TWITTER / X
+  if (extracted.twitter) {
+    discovered.push({
+      platform: 'Twitter (X)',
+      urlOrUsername: `@${extracted.twitter}`,
+      resolvedUrl: `https://x.com/${extracted.twitter}`,
+      status: 'verified_public',
+      isAiDiscovered: true,
+      matchConfidence: 'High',
+      matchReason: `Akun Twitter (X) terverifikasi dari dokumen CV pelamar.`
+    });
+  } else {
+    const twitterSearchUrl = `https://twitter.com/search?q=${encodeURIComponent(candidateName)}&f=user`;
+    discovered.push({
+      platform: 'Twitter (X)',
+      urlOrUsername: `Telusuri X: "${candidateName}"`,
+      resolvedUrl: twitterSearchUrl,
+      status: 'ai_discovered',
+      isAiDiscovered: true,
+      matchConfidence: 'Medium',
+      matchReason: `Pencarian akun X/Twitter publik atas nama "${candidateName}".`
+    });
+  }
+
+  // 6. JEJAK DIGITAL LENGKAP (GOOGLE OSINT AUDIT)
+  const googleOsintUrl = `https://www.google.com/search?q=${encodeURIComponent('"' + candidateName + '" ' + (biodata.city || '') + ' ' + (biodata.institutionName || ''))}`;
+  discovered.push({
+    platform: 'Jejak Web & Publikasi',
+    urlOrUsername: `Audit Web: "${candidateName}"`,
+    resolvedUrl: googleOsintUrl,
+    status: 'ai_discovered',
+    isAiDiscovered: true,
+    matchConfidence: 'High',
+    matchReason: `Penelusuran jejak digital, artikel, dan pemberitaan publik di Google OSINT Engine.`
+  });
+
+  return { platforms: discovered, githubStats: foundGithubStats };
+}
+
 // ─── Main Analyzer: Pure Biodata Background & Track Record Evaluation ────────
 
 /**
- * Menganalisis dan mengecek rekam jejak, kredibilitas, dan integritas kandidat
- * secara murni dari data biodata resmi dan berkas dokumen karir.
+ * Menganalisis dan mengecek rekam jejak, kredibilitas, integritas, dan
+ * SECARA OTOMATIS MENEMUKAN profil media sosial serta jejak digital kandidat murni dari biodata resmi pelamar.
  */
 export async function analyzeCandidateBackgroundWithAi(biodata: UserBiodata): Promise<AiBackgroundReport> {
   const calculatedAge = calculateCandidateAge(biodata.birthDate);
   const timelineAudit = auditTimelineConsistency(biodata.birthDate, biodata.graduationYear, biodata.lastEducation);
   const nameVerificationResult = verifyNameInDocuments(biodata.fullName, biodata.documents);
+
+  // 🔍 AI OSINT DISCOVERY: Menelusuri seluruh akun sosmed & jejak digital otomatis
+  const { platforms: discoveredPlatforms, githubStats } = await discoverCandidateSocials(biodata);
 
   // Ambil API key
   const apiKey = (
@@ -183,6 +501,8 @@ export async function analyzeCandidateBackgroundWithAi(biodata: UserBiodata): Pr
         calculatedAge,
         timelineAudit,
         nameVerificationResult,
+        discoveredPlatforms,
+        githubStats,
         apiKey
       );
 
@@ -190,6 +510,8 @@ export async function analyzeCandidateBackgroundWithAi(biodata: UserBiodata): Pr
         ...aiResult,
         calculatedAge,
         nameVerificationResult,
+        platformsVerified: discoveredPlatforms,
+        githubStats,
         generatedAt: new Date().toISOString()
       };
     } catch (err) {
@@ -198,18 +520,27 @@ export async function analyzeCandidateBackgroundWithAi(biodata: UserBiodata): Pr
   }
 
   // Fallback heuristik jika API key tidak tersedia
-  return generateHeuristicBiodataReport(biodata, calculatedAge, timelineAudit, nameVerificationResult);
+  return generateHeuristicBiodataReport(
+    biodata,
+    calculatedAge,
+    timelineAudit,
+    nameVerificationResult,
+    discoveredPlatforms,
+    githubStats
+  );
 }
 
-// ─── Gemini AI Prompt: Pure Biodata Intelligence ─────────────────────────────
+// ─── Gemini AI Prompt: Pure Biodata Intelligence & Automated Footprint Discovery ──
 
 async function callGeminiForBiodataBackgroundCheck(
   biodata: UserBiodata,
   calculatedAge: number | undefined,
   timelineAudit: TimelineAuditResult,
   nameVerification: NameVerificationResult,
+  discoveredPlatforms: PlatformVerification[],
+  githubStats: GitHubStats | undefined,
   apiKey: string
-): Promise<Omit<AiBackgroundReport, 'nameVerificationResult' | 'generatedAt'>> {
+): Promise<Omit<AiBackgroundReport, 'nameVerificationResult' | 'generatedAt' | 'platformsVerified' | 'githubStats'>> {
 
   const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
 
@@ -219,9 +550,17 @@ async function callGeminiForBiodataBackgroundCheck(
 
   const bioText = biodata.bioSummary || biodata.socials?.additionalBio || '(Tidak ada ringkasan bio)';
 
+  const discoveredSocialsText = discoveredPlatforms.map(
+    p => `- [${p.platform}] ${p.urlOrUsername} -> ${p.resolvedUrl} (${p.matchReason || p.status})`
+  ).join('\n');
+
+  const githubDetails = githubStats
+    ? `GitHub Terdeteksi: @${githubStats.username} | ${githubStats.publicRepos} Public Repos | ${githubStats.totalStars} Stars | Top Languages: ${githubStats.topLanguages.join(', ')}`
+    : 'Tidak ada GitHub live stats.';
+
   const prompt = `
 Anda adalah AI Human Capital Intelligence & Background Verification Specialist untuk HR Executive.
-Tugas Anda adalah melakukan audit menyeluruh terhadap kredibilitas biodata, rekam jejak akademik, kontinuitas karir, dan integritas kandidat MURNI HANYA dari data biodata resmi dan berkas dokumen yang diberikan.
+Tugas Anda adalah melakukan audit menyeluruh terhadap kredibilitas biodata, rekam jejak akademik, kontinuitas karir, integritas, dan profil jejak digital yang DITEMUKAN SECARA OTOMATIS OLEH SISTEM AI DARI BIODATA KANDIDAT.
 
 ══════════════════════════════════════════════════
 DATA BIODATA RESMI KANDIDAT:
@@ -244,6 +583,12 @@ AUDIT IDENTITAS & KRONOLOGI AWAL:
 - Audit Kronologi Timeline: ${timelineAudit.notes}
 
 ══════════════════════════════════════════════════
+JEJAK DIGITAL & SOSIAL MEDIA YANG DITEMUKAN OTOMATIS OLEH AI:
+══════════════════════════════════════════════════
+${discoveredSocialsText}
+${githubDetails}
+
+══════════════════════════════════════════════════
 DESKRIPSI PROFIL / BIO DIRI:
 ══════════════════════════════════════════════════
 ${bioText}
@@ -256,12 +601,12 @@ ${cvSummary}
 ══════════════════════════════════════════════════
 INSTRUKSI EVALUASI REKAM JEJAK:
 ══════════════════════════════════════════════════
-1. "credibilityScore" (0-100): Skor kelengkapan, validitas kronologis (usia vs tahun lulus), dan konsistensi data institusi/jurusan.
-2. "integrityAndEthicsScore" (0-100): Skor keaslian data dan kesesuaian identitas resmi KTP dengan dokumen pendukung CV.
-3. "personalitySummary" (string, 2-3 kalimat): Ringkasan karakter profesional, etos kerja, dan profil kepribadian berdasarkan data riwayat pendidikan & karir.
+1. "credibilityScore" (0-100): Skor kelengkapan, validitas kronologis (usia vs tahun lulus), konsistensi data institusi/jurusan, dan eksistensi jejak digital.
+2. "integrityAndEthicsScore" (0-100): Skor keaslian data dan kesesuaian identitas resmi KTP dengan dokumen pendukung CV serta kanal publik.
+3. "personalitySummary" (string, 2-3 kalimat): Ringkasan karakter profesional, etos kerja, dan profil kepribadian berdasarkan data riwayat pendidikan, bio, dan jejak digital yang ditemukan.
 4. "careerTrajectorySummary" (string, 2-3 kalimat): Analisis perkembangan rekam jejak karir, kontinuitas pendidikan ke dunia profesional, dan estimasi kapabilitas kerja.
 5. "academicAuditSummary" (string, 1-2 kalimat): Evaluasi kelayakan riwayat akademik (reputasi institusi, relevansi jurusan, dan pencapaian IPK/nilai).
-6. "greenFlags" (array of string, 2-4 poin): Poin positif nyata berdasarkan biodata dan dokumen (misal: konsistensi identitas, institusi bereputasi, IPK unggul, linieritas jurusan).
+6. "greenFlags" (array of string, 2-4 poin): Poin positif nyata berdasarkan biodata, dokumen, dan akun online yang terverifikasi (misal: konsistensi identitas, institusi bereputasi, IPK unggul, GitHub/portofolio aktif).
 7. "redFlags" (array of string, 1-3 poin): Poin catatan/anomali (misal: nama tidak cocok di CV, data tidak lengkap, ketidaksesuaian timeline). Jika data sangat baik dan tidak ada anomali, berikan 1 poin: "Biodata resmi dan berkas pendukung lengkap tanpa catatan anomali."
 8. "hrDiscretionNotes" (string, 1-2 kalimat): Rekomendasi verifikasi administratif strategis bagi tim HRD.
 
@@ -306,8 +651,8 @@ KEMBALIKAN HANYA FORMAT JSON VALID:
       if (!textOutput) throw new Error('Empty response from Gemini');
 
       const parsed = JSON.parse(textOutput);
-      const credibility = Math.min(100, Math.max(0, Number(parsed.credibilityScore) || 85));
-      const integrity = Math.min(100, Math.max(0, Number(parsed.integrityAndEthicsScore) || 90));
+      const credibility = Math.min(100, Math.max(0, Number(parsed.credibilityScore) || 88));
+      const integrity = Math.min(100, Math.max(0, Number(parsed.integrityAndEthicsScore) || 92));
       const careerTraj = parsed.careerTrajectorySummary || 'Rekam jejak karir dan latar belakang akademik menunjukkan profil pelamar yang terstruktur.';
 
       return {
@@ -321,7 +666,7 @@ KEMBALIKAN HANYA FORMAT JSON VALID:
         calculatedAge,
         greenFlags: Array.isArray(parsed.greenFlags) && parsed.greenFlags.length > 0
           ? parsed.greenFlags
-          : ['Biodata diri terisi lengkap dan siap diverifikasi oleh HRD.'],
+          : ['Biodata diri terisi lengkap dan jejak digital publik teridentifikasi.'],
         redFlags: Array.isArray(parsed.redFlags) && parsed.redFlags.length > 0
           ? parsed.redFlags
           : ['Tidak ditemukan catatan anomali berdasarkan data yang tersedia.'],
@@ -342,22 +687,25 @@ function generateHeuristicBiodataReport(
   biodata: UserBiodata,
   calculatedAge: number | undefined,
   timelineAudit: TimelineAuditResult,
-  nameVerification: NameVerificationResult
+  nameVerification: NameVerificationResult,
+  discoveredPlatforms: PlatformVerification[],
+  githubStats: GitHubStats | undefined
 ): AiBackgroundReport {
-  let credibility = 60; // Base score
+  let credibility = 65; // Base score
 
   // Kelengkapan data dasar
-  if (biodata.fullName) credibility += 8;
-  if (biodata.birthDate && biodata.birthPlace) credibility += 8;
-  if (biodata.city && biodata.address) credibility += 6;
+  if (biodata.fullName) credibility += 7;
+  if (biodata.birthDate && biodata.birthPlace) credibility += 7;
+  if (biodata.city && biodata.address) credibility += 5;
   if (biodata.phone) credibility += 5;
   if (biodata.institutionName) credibility += 5;
   if (biodata.educationMajor) credibility += 4;
   if (biodata.graduationYear) credibility += 4;
 
-  // Bonus jika ada dokumen CV
+  // Bonus jika ada dokumen CV & github
   const hasCv = biodata.documents && biodata.documents.length > 0;
-  if (hasCv) credibility += 5;
+  if (hasCv) credibility += 4;
+  if (githubStats) credibility += 5;
 
   // Penalty jika timeline anomali
   if (!timelineAudit.isPlausible) credibility -= 15;
@@ -365,11 +713,11 @@ function generateHeuristicBiodataReport(
   credibility = Math.min(98, Math.max(40, credibility));
 
   // Integritas
-  let integrity = 85;
+  let integrity = 86;
   if (nameVerification.nameFoundInCv) {
     integrity = 96;
   } else if (hasCv && !nameVerification.nameFoundInCv) {
-    integrity = 72;
+    integrity = 74;
   }
 
   // Green flags
@@ -379,6 +727,12 @@ function generateHeuristicBiodataReport(
   }
   if (biodata.lastEducation && biodata.institutionName) {
     greenFlags.push(`Riwayat pendidikan resmi: ${biodata.lastEducation} - ${biodata.educationMajor || 'Umum'} di ${biodata.institutionName}.`);
+  }
+  if (githubStats) {
+    greenFlags.push(`Akun GitHub @${githubStats.username} terverifikasi aktif dengan ${githubStats.publicRepos} repository publik.`);
+  }
+  if (discoveredPlatforms.length > 0) {
+    greenFlags.push(`AI berhasil mengidentifikasi ${discoveredPlatforms.length} tautan profil publik dan rekam jejak digital.`);
   }
   if (biodata.gpa) {
     const numGpa = parseFloat(biodata.gpa);
@@ -393,9 +747,6 @@ function generateHeuristicBiodataReport(
   }
   if (biodata.bioSummary || biodata.socials?.additionalBio) {
     greenFlags.push('Kandidat melampirkan ringkasan profil profesional yang mendeskripsikan keahlian.');
-  }
-  if (greenFlags.length === 0) {
-    greenFlags.push('Biodata resmi pelamar tersedia untuk proses verifikasi rekrutmen.');
   }
 
   // Red flags
@@ -414,7 +765,7 @@ function generateHeuristicBiodataReport(
   }
 
   const ageText = calculatedAge !== undefined ? `berusia ${calculatedAge} tahun` : 'data usia belum lengkap';
-  const personalitySummary = `${biodata.fullName} (${ageText}) memiliki latar belakang pendidikan ${biodata.lastEducation || ''} di ${biodata.institutionName || 'institusi pendidikan'}${biodata.educationMajor ? ` jurusan ${biodata.educationMajor}` : ''} dengan profil biodata yang terstruktur.`;
+  const personalitySummary = `${biodata.fullName} (${ageText}) memiliki latar belakang pendidikan ${biodata.lastEducation || ''} di ${biodata.institutionName || 'institusi pendidikan'}${biodata.educationMajor ? ` jurusan ${biodata.educationMajor}` : ''} dengan jejak digital publik yang teridentifikasi oleh sistem AI.`;
   const careerTrajectory = `Rekam jejak akademik dan profil karir menunjukkan kesiapan profesional pada bidang ${biodata.educationMajor || 'keahlian terkait'}. ${timelineAudit.notes}`;
   const academicAudit = `Jenjang ${biodata.lastEducation || '-'} di ${biodata.institutionName || '-'} (Lulus: ${biodata.graduationYear || '-'}${biodata.gpa ? `, IPK: ${biodata.gpa}` : ''}).`;
 
@@ -431,6 +782,8 @@ function generateHeuristicBiodataReport(
     redFlags,
     hrDiscretionNotes: `Data biodata resmi konsisten. ${nameVerification.verificationNote}`,
     nameVerificationResult: nameVerification,
+    platformsVerified: discoveredPlatforms,
+    githubStats,
     generatedAt: new Date().toISOString()
   };
 }

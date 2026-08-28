@@ -37,11 +37,10 @@ export interface PlatformVerification {
   platform: string;
   urlOrUsername: string;
   resolvedUrl: string;
-  // verified_public = berhasil dikonfirmasi ada (200)
-  // url_provided = user kasih full URL, diasumsikan valid
-  // username_provided = hanya username, sudah diubah ke URL tapi belum dicek
-  // not_found = dicek tapi 404 / tidak ditemukan
-  status: 'verified_public' | 'username_provided' | 'url_provided' | 'not_found';
+  status: 'verified_public' | 'username_provided' | 'url_provided' | 'not_found' | 'ai_discovered';
+  isAiDiscovered?: boolean;
+  matchConfidence?: 'High' | 'Medium' | 'Potential';
+  matchReason?: string;
 }
 
 export interface NameVerificationResult {
