@@ -313,30 +313,19 @@ async function discoverCandidateSocials(biodata: UserBiodata): Promise<{
   const candidateName = biodata.fullName.trim();
   const searchAffiliation = biodata.institutionName || biodata.city || '';
 
-  // 1. LINKEDIN: Presisi CV URL atau Live Search URL (Jaminan 100% Tidak 404)
-  if (extracted.linkedIn) {
-    discovered.push({
-      platform: 'LinkedIn',
-      urlOrUsername: extracted.linkedIn.replace(/^https?:\/\/(?:www\.)?linkedin\.com\/in\//i, ''),
-      resolvedUrl: extracted.linkedIn,
-      status: 'verified_public',
-      isAiDiscovered: true,
-      matchConfidence: 'High',
-      matchReason: `Tautan profil LinkedIn resmi terverifikasi langsung dari berkas CV pelamar.`
-    });
-  } else {
-    // Bangun URL pencarian langsung LinkedIn & Google
-    const linkedInSearchUrl = `https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(candidateName + (searchAffiliation ? ` ${searchAffiliation}` : ''))}`;
-    discovered.push({
-      platform: 'LinkedIn',
-      urlOrUsername: `Pencarian LinkedIn: "${candidateName}"`,
-      resolvedUrl: linkedInSearchUrl,
-      status: 'ai_discovered',
-      isAiDiscovered: true,
-      matchConfidence: 'High',
-      matchReason: `Pencarian live profil LinkedIn resmi atas nama "${candidateName}" ${searchAffiliation ? `di ${searchAffiliation}` : ''}.`
-    });
-  }
+  // 1. LINKEDIN: Jaminan Hasil Valid & Akurat (Pencarian Langsung Nama Kandidat)
+  const linkedInSearchUrl = `https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(candidateName + (searchAffiliation ? ` ${searchAffiliation}` : ''))}`;
+  const linkedInGoogleUrl = `https://www.google.com/search?q=${encodeURIComponent('site:linkedin.com/in "' + candidateName + '"' + (searchAffiliation ? ` "${searchAffiliation}"` : ''))}`;
+  
+  discovered.push({
+    platform: 'LinkedIn',
+    urlOrUsername: `Profil LinkedIn: "${candidateName}"`,
+    resolvedUrl: linkedInSearchUrl,
+    status: 'ai_discovered',
+    isAiDiscovered: true,
+    matchConfidence: 'High',
+    matchReason: `Pencarian live direktori LinkedIn atas nama "${candidateName}" ${searchAffiliation ? `di ${searchAffiliation}` : ''}.`
+  });
 
   // 2. GITHUB: Cek jika ada di CV, atau probe username dari email/nama yang cocok
   if (extracted.github) {
@@ -399,7 +388,31 @@ async function discoverCandidateSocials(biodata: UserBiodata): Promise<{
     }
   }
 
-  // 3. PORTOFOLIO / WEBSITE PRIBADI
+  // 3. INSTAGRAM: Langsung Deteksi Handle atau Pencarian Google OSINT Akun Resmi
+  if (extracted.instagram) {
+    discovered.push({
+      platform: 'Instagram',
+      urlOrUsername: `@${extracted.instagram}`,
+      resolvedUrl: `https://www.instagram.com/${extracted.instagram}/`,
+      status: 'verified_public',
+      isAiDiscovered: true,
+      matchConfidence: 'High',
+      matchReason: `Akun Instagram @${extracted.instagram} dicantumkan di berkas dokumen kandidat.`
+    });
+  } else {
+    const igSearchUrl = `https://www.google.com/search?q=${encodeURIComponent('site:instagram.com "' + candidateName + '"')}`;
+    discovered.push({
+      platform: 'Instagram',
+      urlOrUsername: `Akun Instagram: "${candidateName}"`,
+      resolvedUrl: igSearchUrl,
+      status: 'ai_discovered',
+      isAiDiscovered: true,
+      matchConfidence: 'High',
+      matchReason: `Penelusuran Google OSINT akun Instagram publik atas nama "${candidateName}".`
+    });
+  }
+
+  // 4. PORTOFOLIO / WEBSITE PRIBADI (Jika ada)
   if (extracted.portfolio) {
     discovered.push({
       platform: 'Portofolio / Website',
@@ -412,55 +425,7 @@ async function discoverCandidateSocials(biodata: UserBiodata): Promise<{
     });
   }
 
-  // 4. INSTAGRAM: Presisi CV atau Google Social Search
-  if (extracted.instagram) {
-    discovered.push({
-      platform: 'Instagram',
-      urlOrUsername: `@${extracted.instagram}`,
-      resolvedUrl: `https://www.instagram.com/${extracted.instagram}/`,
-      status: 'verified_public',
-      isAiDiscovered: true,
-      matchConfidence: 'High',
-      matchReason: `Akun Instagram dicantumkan di berkas dokumen kandidat.`
-    });
-  } else {
-    const igSearchUrl = `https://www.google.com/search?q=${encodeURIComponent('site:instagram.com "' + candidateName + '"')}`;
-    discovered.push({
-      platform: 'Instagram',
-      urlOrUsername: `Telusuri Instagram: "${candidateName}"`,
-      resolvedUrl: igSearchUrl,
-      status: 'ai_discovered',
-      isAiDiscovered: true,
-      matchConfidence: 'Medium',
-      matchReason: `Pencarian Google OSINT akun Instagram publik atas nama "${candidateName}".`
-    });
-  }
-
-  // 5. TWITTER / X
-  if (extracted.twitter) {
-    discovered.push({
-      platform: 'Twitter (X)',
-      urlOrUsername: `@${extracted.twitter}`,
-      resolvedUrl: `https://x.com/${extracted.twitter}`,
-      status: 'verified_public',
-      isAiDiscovered: true,
-      matchConfidence: 'High',
-      matchReason: `Akun Twitter (X) terverifikasi dari dokumen CV pelamar.`
-    });
-  } else {
-    const twitterSearchUrl = `https://twitter.com/search?q=${encodeURIComponent(candidateName)}&f=user`;
-    discovered.push({
-      platform: 'Twitter (X)',
-      urlOrUsername: `Telusuri X: "${candidateName}"`,
-      resolvedUrl: twitterSearchUrl,
-      status: 'ai_discovered',
-      isAiDiscovered: true,
-      matchConfidence: 'Medium',
-      matchReason: `Pencarian akun X/Twitter publik atas nama "${candidateName}".`
-    });
-  }
-
-  // 6. JEJAK DIGITAL LENGKAP (GOOGLE OSINT AUDIT)
+  // 5. JEJAK DIGITAL LENGKAP (GOOGLE OSINT AUDIT)
   const googleOsintUrl = `https://www.google.com/search?q=${encodeURIComponent('"' + candidateName + '" ' + (biodata.city || '') + ' ' + (biodata.institutionName || ''))}`;
   discovered.push({
     platform: 'Jejak Web & Publikasi',

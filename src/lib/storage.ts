@@ -839,8 +839,16 @@ export function getApplicationsByJobId(jobId: string): Application[] {
   return getAllApplications().filter((a) => a.jobId === jobId);
 }
 
-export function getApplicationsByCompanyId(companyId: string): Application[] {
-  return getAllApplications().filter((a) => a.companyId === companyId);
+export function getApplicationsByCompanyId(companyId: string, companyName?: string): Application[] {
+  const jobs = getAllJobs().filter((j) => j.companyId === companyId || (companyName && j.companyName?.toLowerCase() === companyName.toLowerCase()));
+  const jobIds = new Set(jobs.map((j) => j.id));
+
+  return getAllApplications().filter(
+    (a) =>
+      a.companyId === companyId ||
+      jobIds.has(a.jobId) ||
+      (companyName && a.companyName?.toLowerCase() === companyName.toLowerCase())
+  );
 }
 
 export function getApplicationsByUserId(userId: string): Application[] {
@@ -922,8 +930,17 @@ export function submitApplication(
     updateUserBiodata(user.id, { ...user.biodata, documents: docs });
   }
 
+  const allJobs = getAllJobs();
+  const targetJob = allJobs.find((j) => j.id === applicationData.jobId);
+  const finalCompanyId = targetJob?.companyId || applicationData.companyId;
+  const finalCompanyName = targetJob?.companyName || applicationData.companyName;
+  const finalJobTitle = targetJob?.title || applicationData.jobTitle;
+
   const newApplication: Application = {
     ...applicationData,
+    jobTitle: finalJobTitle,
+    companyId: finalCompanyId,
+    companyName: finalCompanyName,
     documents: docs,
     applicantBiodata,
     id: `app-${Date.now()}`,
@@ -931,8 +948,13 @@ export function submitApplication(
     status: applicationData.status || 'applied'
   };
 
-  applications.unshift(newApplication);
-  localStorage.setItem(APPLICATIONS_KEY, JSON.stringify(applications));
+  // Remove any previous application for this user on this same job in localStorage
+  const filteredApps = applications.filter(
+    (a) => !(a.jobId === applicationData.jobId && (a.userId === applicationData.userId || a.applicantEmail?.toLowerCase() === applicationData.applicantEmail?.toLowerCase()))
+  );
+
+  filteredApps.unshift(newApplication);
+  localStorage.setItem(APPLICATIONS_KEY, JSON.stringify(filteredApps));
   triggerDataRefresh();
 
   // Asynchronously save application + documents + AI evaluation to MySQL database

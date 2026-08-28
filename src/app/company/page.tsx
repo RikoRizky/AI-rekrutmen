@@ -99,7 +99,7 @@ export default function CompanyPortalPage() {
         const compJobs = getJobsByCompanyId(comp.id, comp.name);
         setJobs(compJobs);
 
-        const compApps = getApplicationsByCompanyId(comp.id);
+        const compApps = getApplicationsByCompanyId(comp.id, comp.name);
         setApplications(compApps);
       }
     } else {
@@ -114,7 +114,7 @@ export default function CompanyPortalPage() {
         }
         setCompany(comp);
         setJobs(getJobsByCompanyId(comp.id, comp.name));
-        setApplications(getApplicationsByCompanyId(comp.id));
+        setApplications(getApplicationsByCompanyId(comp.id, comp.name));
       }
     }
   };

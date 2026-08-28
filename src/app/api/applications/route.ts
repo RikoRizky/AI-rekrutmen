@@ -13,7 +13,12 @@ export async function GET(req: NextRequest) {
     const where: any = {};
     if (userId) where.userId = userId;
     if (jobId) where.jobId = jobId;
-    if (companyId) where.companyId = companyId;
+    if (companyId) {
+      where.OR = [
+        { companyId },
+        { job: { companyId } }
+      ];
+    }
     if (status && status !== 'all') where.status = status;
 
     const applications = await prisma.application.findMany({
@@ -159,19 +164,40 @@ export async function POST(req: NextRequest) {
     // Create or Upsert Application
     const applicationId = body.id || `app-${Date.now()}`;
     
-    // Remove any existing duplicate record with same ID to ensure clean state
-    await prisma.application.deleteMany({
-      where: { id: applicationId }
-    }).catch(() => {});
+    // Remove any existing duplicate record for this user on this job to ensure 100% clean single record
+    const existingOldApps = await prisma.application.findMany({
+      where: {
+        jobId,
+        OR: [
+          { userId: effectiveUserId },
+          { applicantEmail },
+          { id: applicationId }
+        ]
+      },
+      select: { id: true }
+    });
+
+    if (existingOldApps.length > 0) {
+      const oldIds = existingOldApps.map((o) => o.id);
+      await prisma.aiEvaluation.deleteMany({ where: { applicationId: { in: oldIds } } }).catch(() => {});
+      await prisma.document.deleteMany({ where: { applicationId: { in: oldIds } } }).catch(() => {});
+      await prisma.application.deleteMany({ where: { id: { in: oldIds } } }).catch(() => {});
+    }
+
+    const targetJob = await prisma.job.findUnique({ where: { id: jobId } });
+    const finalCompanyId = targetJob?.companyId || companyId || undefined;
+    const finalCompanyName = targetJob?.companyName || companyName || undefined;
+    const finalJobTitle = targetJob?.title || jobTitle || undefined;
+    const finalJobDept = targetJob?.department || jobDepartment || undefined;
 
     const newApplication = await prisma.application.create({
       data: {
         id: applicationId,
         jobId,
-        jobTitle: jobTitle || undefined,
-        jobDepartment: jobDepartment || undefined,
-        companyId: companyId || undefined,
-        companyName: companyName || undefined,
+        jobTitle: finalJobTitle,
+        jobDepartment: finalJobDept,
+        companyId: finalCompanyId,
+        companyName: finalCompanyName,
         userId: effectiveUserId,
         applicantName,
         applicantEmail,
