@@ -67,36 +67,7 @@ export async function syncFromDatabase() {
       modified = true;
     }
     if (appsRes?.success && Array.isArray(appsRes.applications)) {
-      const localRaw = localStorage.getItem(APPLICATIONS_KEY);
-      let localApps: Application[] = [];
-      try {
-        localApps = localRaw ? JSON.parse(localRaw) : [];
-      } catch {}
-
-      const localAppMap = new Map<string, Application>();
-      for (const la of localApps) {
-        if (la.id) localAppMap.set(la.id, la);
-      }
-
-      const mergedApps = appsRes.applications.map((serverApp: Application) => {
-        const local = localAppMap.get(serverApp.id);
-        if (local?.aiEvaluation && typeof local.aiEvaluation.overallScore === 'number' && local.aiEvaluation.overallScore > 0) {
-          // If server evaluation is missing or local is valid, keep the local evaluation
-          if (!serverApp.aiEvaluation || !serverApp.aiEvaluation.overallScore) {
-            serverApp.aiEvaluation = local.aiEvaluation;
-          }
-        }
-        return repairApplicationEvaluation(serverApp);
-      });
-
-      // Also preserve any newly submitted local application that isn't yet in server response
-      for (const la of localApps) {
-        if (!mergedApps.some((ma: Application) => ma.id === la.id)) {
-          mergedApps.unshift(la);
-        }
-      }
-
-      localStorage.setItem(APPLICATIONS_KEY, JSON.stringify(mergedApps));
+      localStorage.setItem(APPLICATIONS_KEY, JSON.stringify(appsRes.applications));
       modified = true;
     }
     if (usersRes?.success && Array.isArray(usersRes.users)) {
@@ -142,7 +113,7 @@ export function initializeStorage() {
     localStorage.setItem(JOBS_KEY, JSON.stringify(SEED_JOBS));
   }
   if (!localStorage.getItem(APPLICATIONS_KEY)) {
-    localStorage.setItem(APPLICATIONS_KEY, JSON.stringify(SEED_APPLICATIONS));
+    localStorage.setItem(APPLICATIONS_KEY, JSON.stringify([]));
   }
   if (!localStorage.getItem(USERS_KEY)) {
     localStorage.setItem(USERS_KEY, JSON.stringify(SEED_USERS));
@@ -837,10 +808,10 @@ export function repairApplicationEvaluation(app: Application): Application {
 }
 
 export function getAllApplications(): Application[] {
-  if (typeof window === 'undefined') return SEED_APPLICATIONS;
+  if (typeof window === 'undefined') return [];
   const stored = localStorage.getItem(APPLICATIONS_KEY);
   if (!stored) {
-    return SEED_APPLICATIONS;
+    return [];
   }
   try {
     const rawApps: Application[] = JSON.parse(stored);
@@ -860,7 +831,7 @@ export function getAllApplications(): Application[] {
     }
     return repairedApps;
   } catch {
-    return SEED_APPLICATIONS;
+    return [];
   }
 }
 
