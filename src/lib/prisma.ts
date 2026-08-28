@@ -6,7 +6,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  const connectionUrl = (process.env.DATABASE_URL || 'mysql://root:@127.0.0.1:3306/smart_recruit').replace('localhost', '127.0.0.1');
+  const connectionUrl = (process.env.DATABASE_URL || '').replace('localhost', '127.0.0.1');
   const adapter = new PrismaMariaDb(connectionUrl);
   return new PrismaClient({
     adapter,

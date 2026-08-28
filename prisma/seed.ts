@@ -10,12 +10,22 @@ import {
   DEFAULT_SETTINGS
 } from '../src/lib/seed-data';
 
-const connectionUrl = process.env.DATABASE_URL || 'mysql://root:@localhost:3306/smart_recruit';
-const adapter = new PrismaMariaDb(connectionUrl);
+try {
+  process.loadEnvFile?.();
+} catch {}
+
+const dbUrl = (process.env.DATABASE_URL || '').replace('localhost', '127.0.0.1');
+if (!dbUrl) {
+  throw new Error('DATABASE_URL tidak ditemukan di file .env');
+}
+
+const adapter = new PrismaMariaDb(dbUrl);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  console.log('🌱 Starting database seeding into smart_recruit MySQL...');
+  const dbNameMatch = dbUrl.match(/\/([^/?]+)(?:\?|$)/);
+  const currentDbName = dbNameMatch ? dbNameMatch[1] : 'MySQL';
+  console.log(`🌱 Starting database seeding into "${currentDbName}" MySQL...`);
 
   // 1. Companies
   console.log('Inserting companies...');
