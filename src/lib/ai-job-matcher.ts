@@ -1,4 +1,5 @@
 import { Job, DocumentAttachment, UserBiodata, User, Application, FitLevel } from './types';
+import { auditDocumentIdentity } from './ai-evaluator';
 
 export interface JobMatchRecommendation {
   job: Job;
@@ -57,6 +58,10 @@ export async function calculateJobRecommendations({
   const cvDoc = documents.find((d) => d.type === 'cv');
   const coverLetterDoc = documents.find((d) => d.type === 'cover_letter');
   const certDocs = documents.filter((d) => d.type === 'certificate');
+
+  const applicantOfficialName = biodata?.fullName || user.name || 'Pelamar';
+  const identityAudit = auditDocumentIdentity(applicantOfficialName, user.email || '', documents);
+  const isDocumentBelongToOther = !identityAudit.isAuthenticOwner;
 
   const combinedCandidateText = [
     cvDoc?.extractedText || '',
@@ -196,12 +201,16 @@ export async function calculateJobRecommendations({
       motivationScore * 0.15
     );
 
-    const safeScore = Math.min(99, Math.max(35, totalScore));
-    const matchLevel = mapScoreToMatchLevel(safeScore);
-
-    // Recommendation reason
+    let safeScore = Math.min(99, Math.max(35, totalScore));
+    let matchLevel = mapScoreToMatchLevel(safeScore);
     let recommendationReason = '';
-    if (matchedSkills.length > 0) {
+
+    // If documents in profile belong to someone else, enforce Low match & warning note
+    if (isDocumentBelongToOther) {
+      safeScore = 13;
+      matchLevel = 'Cukup';
+      recommendationReason = `Peringatan Identitas: Berkas CV Anda terdeteksi mencantumkan nama "${identityAudit.detectedNames.join(', ')}", tidak sesuai dengan akun Anda (${applicantOfficialName}). Harap unggah berkas CV asli Anda.`;
+    } else if (matchedSkills.length > 0) {
       recommendationReason = `Keahlian Anda dalam ${matchedSkills.slice(0, 3).join(', ')} sangat sesuai dengan kebutuhan posisi ${job.title} di ${job.companyName}.`;
     } else if (experienceScore >= 80) {
       recommendationReason = `Latar belakang pengalaman dan kualifikasi berkas Anda selaras dengan kriteria posisi ini di ${job.companyName}.`;
