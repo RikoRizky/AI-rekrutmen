@@ -218,7 +218,7 @@ export default function JobDetailPage() {
           <div className="flex items-start gap-4">
             <div className="w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0 shadow-md">
               {job.companyLogo ? (
-                <img src={job.companyLogo} alt={job.companyName} className="w-full h-full object-cover" />
+                <img src={job.companyLogo} alt={job.companyName} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
               ) : (
                 <Building2 className="w-8 h-8 text-emerald-400" />
               )}

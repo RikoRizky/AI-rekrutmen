@@ -226,7 +226,7 @@ export default function SuperAdminPage() {
                 {companies.slice(0, 3).map((comp) => (
                   <div key={comp.id} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-xs">
                     <div className="flex items-center gap-3">
-                      <img src={comp.logo} alt={comp.name} className="w-9 h-9 rounded-lg object-cover" />
+                      <img src={comp.logo} alt={comp.name} referrerPolicy="no-referrer" className="w-9 h-9 rounded-lg object-cover" />
                       <div>
                         <p className="font-bold text-white">{comp.name}</p>
                         <p className="text-[11px] text-slate-400">{comp.industry}</p>
@@ -318,7 +318,7 @@ export default function SuperAdminPage() {
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-2">
                           {j.companyLogo && (
-                            <img src={j.companyLogo} alt={j.companyName} className="w-6 h-6 rounded-md object-cover" />
+                            <img src={j.companyLogo} alt={j.companyName} referrerPolicy="no-referrer" className="w-6 h-6 rounded-md object-cover" />
                           )}
                           <span className="font-semibold text-emerald-400">{j.companyName}</span>
                         </div>
@@ -389,7 +389,7 @@ export default function SuperAdminPage() {
                   <tr key={c.id} className="hover:bg-slate-800/40 transition-colors">
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-3">
-                        <img src={c.logo} alt={c.name} className="w-8 h-8 rounded-lg object-cover" />
+                        <img src={c.logo} alt={c.name} referrerPolicy="no-referrer" className="w-8 h-8 rounded-lg object-cover" />
                         <div>
                           <p className="font-bold text-white">{c.name}</p>
                           <p className="text-[11px] text-slate-400">{c.address}</p>
@@ -564,7 +564,7 @@ export default function SuperAdminPage() {
               <div className="flex items-start gap-4">
                 <div className="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0">
                   {selectedJobModal.companyLogo ? (
-                    <img src={selectedJobModal.companyLogo} alt={selectedJobModal.companyName} className="w-full h-full object-cover" />
+                    <img src={selectedJobModal.companyLogo} alt={selectedJobModal.companyName} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                   ) : (
                     <Building2 className="w-6 h-6 text-emerald-400" />
                   )}

@@ -367,6 +367,10 @@ function ProfileContent() {
                 <img
                   src={avatarUrl || getDefaultUserAvatar(fullName || currentUser?.name || 'User')}
                   alt="Foto Profil"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = getDefaultUserAvatar(fullName || currentUser?.name || 'User');
+                  }}
                   className="w-20 h-20 rounded-2xl object-cover border-2 border-emerald-500/40 shadow-lg bg-slate-900"
                 />
                 <label

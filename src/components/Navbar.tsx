@@ -257,6 +257,10 @@ export default function Navbar() {
                   <img
                     src={getUserAvatar()}
                     alt={currentUser.name}
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = getDefaultUserAvatar(currentUser.name || 'User');
+                    }}
                     className="w-8 h-8 rounded-lg object-cover ring-1 ring-emerald-500/40 bg-slate-800"
                   />
                   <div className="hidden sm:flex flex-col">

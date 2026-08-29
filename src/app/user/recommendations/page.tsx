@@ -374,6 +374,7 @@ function RecommendationsContent() {
                       <img
                         src={targetJob.companyLogo || 'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=120&auto=format&fit=crop&q=60'}
                         alt={targetJob.companyName}
+                        referrerPolicy="no-referrer"
                         className="w-14 h-14 rounded-2xl object-cover bg-slate-950 border border-slate-800 shrink-0"
                       />
                       <div className="space-y-1.5 min-w-0 flex-1">

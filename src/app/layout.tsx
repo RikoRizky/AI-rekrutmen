@@ -13,6 +13,7 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: 'SmartRecruit AI - Platform SaaS Rekrutmen & ATS Multi-Tenant Cerdas',
   description: 'Aplikasi rekrutmen SaaS multi-tenant dengan 3 role terintegrasi, pembayaran Midtrans, undangan email Resend, dan skrining berkas instan Gemini AI.',
+  referrer: 'no-referrer',
 };
 
 export default function RootLayout({
@@ -23,6 +24,7 @@ export default function RootLayout({
   return (
     <html lang="id" className={`${jakarta.variable} h-full antialiased dark`}>
       <head>
+        <meta name="referrer" content="no-referrer" />
         <Script
           src="https://app.sandbox.midtrans.com/snap/snap.js"
           data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || ''}

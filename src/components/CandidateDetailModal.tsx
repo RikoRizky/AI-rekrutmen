@@ -125,6 +125,10 @@ export default function CandidateDetailModal({
               <img
                 src={applicantAvatar}
                 alt={application.applicantName}
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = getDefaultUserAvatar(application.applicantName || 'Pelamar');
+                }}
                 className="w-full h-full object-cover"
               />
             </div>

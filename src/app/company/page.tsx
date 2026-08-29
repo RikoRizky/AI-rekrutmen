@@ -267,6 +267,7 @@ export default function CompanyPortalPage() {
             <img
               src={company.logo}
               alt={company.name}
+              referrerPolicy="no-referrer"
               className="w-16 h-16 rounded-2xl object-cover ring-2 ring-emerald-500/30 shrink-0 shadow-md"
             />
             <div className="space-y-1">
@@ -762,6 +763,7 @@ export default function CompanyPortalPage() {
                     <img
                       src={editLogo || (company ? sanitizeLogo(company) : '') || getDefaultCompanyLogo(editName || 'PT')}
                       alt="Preview Logo"
+                      referrerPolicy="no-referrer"
                       className="w-20 h-20 rounded-2xl object-cover ring-2 ring-emerald-500/40 bg-slate-900 shrink-0 shadow-lg"
                     />
                   </div>

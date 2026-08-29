@@ -109,6 +109,7 @@ export default function JobCard({ job, applicantCount = 0, hasApplied: initialHa
             <img
               src={companyLogo}
               alt={job.companyName}
+              referrerPolicy="no-referrer"
               className="w-12 h-12 rounded-2xl object-cover ring-1 ring-slate-800 bg-slate-950 shrink-0 shadow-md"
             />
             <div className="min-w-0">
