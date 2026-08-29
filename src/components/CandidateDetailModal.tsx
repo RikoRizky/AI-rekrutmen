@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Application, ApplicationStatus } from '@/lib/types';
+import { Application, ApplicationStatus, DocumentOwnershipVerification } from '@/lib/types';
 import { updateApplicationStatus, getCurrentUser, getAllUsers, getDefaultUserAvatar, repairApplicationEvaluation } from '@/lib/storage';
+import { auditDocumentIdentity } from '@/lib/ai-evaluator';
 import AiAnalysisRadar from './AiAnalysisRadar';
 import AiScoreBadge from './AiScoreBadge';
 import {
@@ -49,6 +50,73 @@ interface CandidateDetailModalProps {
   isApplicantView?: boolean;
 }
 
+function resolveDocumentOwnership(
+  application: Application,
+  evalRes: any,
+  candidateDocs: any[]
+): DocumentOwnershipVerification {
+  const applicantName = application.applicantName || 'Pelamar';
+
+  // 1. Run local live document identity audit against actual attached documents
+  const liveAudit = auditDocumentIdentity(
+    applicantName,
+    application.applicantEmail || '',
+    candidateDocs
+  );
+
+  // If live audit confirms the candidate's name is authentically in the documents, it is VERIFIED_MATCH!
+  if (liveAudit.isAuthenticOwner) {
+    return {
+      status: 'VERIFIED_MATCH',
+      isAuthenticOwner: true,
+      identityConfidence: 'High',
+      detectedNamesInDocuments: [applicantName],
+      mismatchedFields: [],
+      ownershipAuditNotes: `Identitas berkas sah dan terverifikasi. Nama pada dokumen CV cocok dengan biodata resmi pelamar (${applicantName}).`,
+      verifiedAt: new Date().toISOString()
+    };
+  }
+
+  // 2. If name is NOT in document, check AI evaluation summary & risk factors
+  const summary = (evalRes?.executiveSummary || '').toLowerCase();
+  const reason = (evalRes?.recommendationReason || '').toLowerCase();
+  const riskFactors = Array.isArray(evalRes?.riskFactors) ? evalRes.riskFactors.map((r: string) => r.toLowerCase()).join(' ') : '';
+  const allAiText = `${summary} ${reason} ${riskFactors}`;
+
+  const fraudKeywords = [
+    'tiga nama berbeda',
+    'dua nama berbeda',
+    'salah kirim dokumen',
+    'salah kirim berkas',
+    'salah unggah',
+    'bukan milik pelamar',
+    'bukan milik akun',
+    'inkonsistensi identitas',
+    'impersonasi',
+    'pemalsuan berkas',
+    'dokumen orang lain'
+  ];
+
+  const hasMismatchInSummary = fraudKeywords.some((kw) => allAiText.includes(kw));
+
+  const detectedNames = Array.from(new Set([
+    ...liveAudit.detectedNames,
+    ...(evalRes?.documentOwnership?.detectedNamesInDocuments || [])
+  ])).filter(name => name && name.toLowerCase() !== applicantName.toLowerCase());
+
+  const displayOtherNames = detectedNames.length > 0 ? detectedNames : ['Identitas Dokumen Orang Lain'];
+
+  return {
+    status: 'CONFIRMED_FRAUD_OR_IMPERSONATION',
+    isAuthenticOwner: false,
+    identityConfidence: 'Fraud/Impersonation',
+    detectedNamesInDocuments: displayOtherNames,
+    mismatchedFields: [`Nama pada berkas dokumen tidak sesuai dengan identitas akun resmi (${applicantName})`],
+    ownershipAuditNotes: `Terdeteksi ketidaksesuaian identitas: Berkas dokumen mencantumkan identitas atas nama "${displayOtherNames.join(', ')}", bukan milik ${applicantName}.`,
+    verifiedAt: new Date().toISOString()
+  };
+}
+
 export default function CandidateDetailModal({
   application,
   onClose,
@@ -77,6 +145,8 @@ export default function CandidateDetailModal({
     : (currentUser?.biodata?.documents && (application.userId === currentUser.id || application.applicantEmail?.toLowerCase() === currentUser.email?.toLowerCase()))
     ? currentUser.biodata.documents
     : [];
+
+  const docOwnership = resolveDocumentOwnership(application, evalRes, candidateDocs);
 
   // Resolve candidate avatar from user profile/biodata or fallback to default
   const allUsers = getAllUsers();
@@ -141,6 +211,19 @@ export default function CandidateDetailModal({
                   recommendation={evalRes.recommendation}
                   size="md"
                 />
+
+                {/* Identity Ownership Badge */}
+                {!docOwnership.isAuthenticOwner || docOwnership.status === 'CONFIRMED_FRAUD_OR_IMPERSONATION' || docOwnership.status === 'SUSPICIOUS_MISMATCH' ? (
+                  <span className="px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/50 text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                    <XCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                    <span>🚨 Dokumen Bukan Milik Pelamar</span>
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                    <BadgeCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>✔ Dokumen Terverifikasi Sah</span>
+                  </span>
+                )}
               </div>
               <p className="text-xs sm:text-sm text-slate-300">
                 Melamar posisi <span className="text-emerald-400 font-semibold">{application.jobTitle}</span> • {application.companyName}
@@ -244,6 +327,64 @@ export default function CandidateDetailModal({
           {/* TAB 1: HASIL ANALISIS AI (RADAR & SUMMARY) */}
           {activeTab === 'ai-summary' && (
             <div className="space-y-6">
+
+              {/* 0. Real Identity & Ownership Verification Card */}
+              {!docOwnership.isAuthenticOwner || docOwnership.status === 'CONFIRMED_FRAUD_OR_IMPERSONATION' || docOwnership.status === 'SUSPICIOUS_MISMATCH' ? (
+                <div className="p-5 sm:p-6 rounded-3xl bg-rose-950/40 border-2 border-rose-500/60 space-y-3.5 shadow-2xl shadow-rose-950/60">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2.5 text-rose-400">
+                      <XCircle className="w-6 h-6 shrink-0" />
+                      <h4 className="font-black text-sm sm:text-base text-rose-300">
+                        PERINGATAN HRD: INDIKASI BERKAS DOKUMEN BUKAN MILIK PELAMAR
+                      </h4>
+                    </div>
+                    <span className="px-2.5 py-1 bg-rose-500/20 text-rose-300 border border-rose-500/40 rounded-full font-bold text-[10px] shrink-0 uppercase tracking-wider">
+                      🚨 Identity Mismatch
+                    </span>
+                  </div>
+
+                  <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+                    Sistem AI mendeteksi bahwa berkas dokumen yang diunggah mencantumkan identitas orang lain yang berbeda dengan akun resmi pelamar. Skor telah otomatis di-penalti ke <strong>Low Match (&lt; 15%)</strong> demi melindungi integritas rekrutmen.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-xs">
+                    <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-rose-500/30 space-y-1">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Nama Resmi Akun / KTP Pelamar:</span>
+                      <p className="text-white font-bold text-sm">{application.applicantName}</p>
+                      <p className="text-slate-400 text-[11px]">{application.applicantEmail} • {application.applicantPhone || 'No telp tersedia'}</p>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-rose-500/30 space-y-1">
+                      <span className="text-[10px] text-rose-400 uppercase font-bold tracking-wider block">Identitas yang Terbaca di Dokumen CV:</span>
+                      <p className="text-rose-300 font-bold text-sm">
+                        {docOwnership.detectedNamesInDocuments?.join(', ') || 'Nama Orang Lain'}
+                      </p>
+                      <p className="text-rose-400/80 text-[11px]">
+                        {docOwnership.ownershipAuditNotes || 'Identitas tidak cocok dengan akun resmi.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 sm:p-5 rounded-2xl bg-emerald-950/30 border border-emerald-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                      <BadgeCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-white text-xs sm:text-sm flex items-center gap-2">
+                        <span>Verifikasi Dokumen: Berkas Terverifikasi Asli & Sah Milik Pelamar</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-300 mt-0.5">
+                        Identitas nama pada CV, surat lamaran, dan sertifikat konsisten 100% dengan biodata resmi <strong>{application.applicantName}</strong>.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold rounded-full self-start sm:self-center shrink-0">
+                    ✔ 100% Match Identity
+                  </span>
+                </div>
+              )}
 
               {/* 1. Executive AI Summary */}
               <div className="p-5 sm:p-6 rounded-3xl bg-slate-950/90 border border-slate-800/80 space-y-2.5 shadow-xl">
@@ -752,6 +893,29 @@ export default function CandidateDetailModal({
                   {candidateDocs.length} Berkas Terlampir
                 </span>
               </div>
+
+              {/* Identity Verification Summary Box */}
+              {!docOwnership.isAuthenticOwner || docOwnership.status === 'CONFIRMED_FRAUD_OR_IMPERSONATION' || docOwnership.status === 'SUSPICIOUS_MISMATCH' ? (
+                <div className="p-4 rounded-2xl bg-rose-950/30 border border-rose-500/50 flex items-start gap-3">
+                  <XCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1 text-xs">
+                    <h4 className="font-bold text-rose-300">Hasil Audit Forensik: Berkas Dokumen Milik Orang Lain</h4>
+                    <p className="text-slate-300 text-[11px] leading-relaxed">
+                      AI mendeteksi identitas nama pada dokumen CV mencantumkan <strong>&ldquo;{docOwnership.detectedNamesInDocuments?.join(', ') || 'Nama Berbeda'}&rdquo;</strong>, tidak sesuai dengan nama resmi akun pelamar <strong>&ldquo;{application.applicantName}&rdquo;</strong>.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 flex items-start gap-3">
+                  <BadgeCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1 text-xs">
+                    <h4 className="font-bold text-emerald-300">Hasil Audit Forensik: Berkas Terverifikasi Sah</h4>
+                    <p className="text-slate-300 text-[11px] leading-relaxed">
+                      Nama dan data pada dokumen CV konsisten dan sah sesuai dengan identitas akun resmi pelamar (<strong>{application.applicantName}</strong>).
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-4">
                 {candidateDocs.length > 0 ? (

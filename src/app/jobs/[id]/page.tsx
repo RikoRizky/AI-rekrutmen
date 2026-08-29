@@ -156,7 +156,10 @@ export default function JobDetailPage() {
         job,
         documents,
         applicantName,
-        applicantHeadline
+        applicantHeadline,
+        applicantBiodata: currentUser?.biodata,
+        applicantEmail,
+        applicantPhone
       });
 
       // Step 3: Ranking & Storing Application

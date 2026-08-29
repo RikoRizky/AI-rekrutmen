@@ -4,7 +4,7 @@ import { evaluateApplicantWithAi } from '@/lib/ai-evaluator';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { job, documents, applicantName, applicantHeadline, geminiApiKey, preferredModel } = body;
+    const { job, documents, applicantName, applicantHeadline, applicantBiodata, applicantEmail, applicantPhone, geminiApiKey, preferredModel } = body;
 
     if (!job || !documents || !applicantName) {
       return NextResponse.json({ error: 'Missing required fields (job, documents, applicantName)' }, { status: 400 });
@@ -15,6 +15,9 @@ export async function POST(req: NextRequest) {
       documents,
       applicantName,
       applicantHeadline,
+      applicantBiodata,
+      applicantEmail,
+      applicantPhone,
       geminiApiKey: geminiApiKey || process.env.GEMINI_API_KEY,
       preferredModel: preferredModel || 'gemini-3.6-flash'
     });

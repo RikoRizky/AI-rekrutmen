@@ -151,7 +151,10 @@ function RecommendationsContent() {
         job: targetJob,
         documents: effectiveDocs,
         applicantName: currentUser.biodata?.fullName || currentUser.name,
-        applicantHeadline: currentUser.headline || `${currentUser.biodata?.lastEducation || 'S1'} ${currentUser.biodata?.educationMajor || ''}`
+        applicantHeadline: currentUser.headline || `${currentUser.biodata?.lastEducation || 'S1'} ${currentUser.biodata?.educationMajor || ''}`,
+        applicantBiodata: currentUser.biodata,
+        applicantEmail: currentUser.email,
+        applicantPhone: currentUser.biodata?.phone || currentUser.phone || ''
       });
 
       // 2. Submit Application

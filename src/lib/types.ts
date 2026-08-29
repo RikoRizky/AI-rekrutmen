@@ -210,6 +210,18 @@ export interface DetailedInterviewQuestion {
   targetCriteria: string;
 }
 
+export type OwnershipStatus = 'VERIFIED_MATCH' | 'SUSPICIOUS_MISMATCH' | 'CONFIRMED_FRAUD_OR_IMPERSONATION' | 'PARTIAL_MISMATCH';
+
+export interface DocumentOwnershipVerification {
+  status: OwnershipStatus;
+  isAuthenticOwner: boolean;
+  identityConfidence: 'High' | 'Medium' | 'Low' | 'Fraud/Impersonation';
+  detectedNamesInDocuments: string[];
+  mismatchedFields: string[];
+  ownershipAuditNotes: string;
+  verifiedAt?: string;
+}
+
 export interface AiEvaluationResult {
   overallScore: number; // 0 - 100
   technicalScore: number; // 0 - 100
@@ -229,6 +241,7 @@ export interface AiEvaluationResult {
   suggestedInterviewQuestions: string[];
   detailedQuestions?: DetailedInterviewQuestion[];
   riskFactors?: string[];
+  documentOwnership?: DocumentOwnershipVerification;
   isRealAi?: boolean;
   modelUsed?: string;
   latencyMs?: number;

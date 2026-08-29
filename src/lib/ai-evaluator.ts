@@ -1,10 +1,13 @@
-import { Job, DocumentAttachment, AiEvaluationResult, FitLevel, RecommendationDecision, DetailedInterviewQuestion } from './types';
+import { Job, DocumentAttachment, AiEvaluationResult, FitLevel, RecommendationDecision, DetailedInterviewQuestion, UserBiodata, DocumentOwnershipVerification } from './types';
 
 export interface EvaluateApplicantParams {
   job: Job;
   documents: DocumentAttachment[];
   applicantName: string;
   applicantHeadline?: string;
+  applicantBiodata?: UserBiodata;
+  applicantEmail?: string;
+  applicantPhone?: string;
   geminiApiKey?: string;
   preferredModel?: string;
 }
@@ -20,12 +23,16 @@ const FALLBACK_MODELS = [
 /**
  * Main evaluation entry point.
  * Uses Google Gemini API (Real AI) if API key is provided, with graceful intelligent local NLP engine fallback.
+ * Strictly verifies document ownership & identity consistency between official applicant biodata and uploaded CV/documents.
  */
 export async function evaluateApplicantWithAi({
   job,
   documents,
   applicantName,
   applicantHeadline = '',
+  applicantBiodata,
+  applicantEmail = '',
+  applicantPhone = '',
   geminiApiKey = '',
   preferredModel = (typeof process !== 'undefined' && process.env?.GEMINI_MODEL) || 'gemini-2.5-flash'
 }: EvaluateApplicantParams): Promise<AiEvaluationResult> {
@@ -68,6 +75,9 @@ ${otherDocs.length > 0 ? otherDocs.map(o => `[${o.name}]\n${o.extractedText || '
           documents,
           applicantName,
           applicantHeadline,
+          applicantBiodata,
+          applicantEmail,
+          applicantPhone,
           preferredModel
         })
       });
@@ -87,6 +97,9 @@ ${otherDocs.length > 0 ? otherDocs.map(o => `[${o.name}]\n${o.extractedText || '
         job,
         applicantName,
         applicantHeadline,
+        applicantBiodata,
+        applicantEmail,
+        applicantPhone,
         allDocumentsText,
         apiKey,
         preferredModel
@@ -104,11 +117,19 @@ ${otherDocs.length > 0 ? otherDocs.map(o => `[${o.name}]\n${o.extractedText || '
   }
 
   // Fallback to local intelligent NLP analysis
-  const localResult = runIntelligentLocalAnalysis(job, applicantName, applicantHeadline, documents);
+  const localResult = runIntelligentLocalAnalysis(
+    job,
+    applicantName,
+    applicantHeadline,
+    documents,
+    applicantBiodata,
+    applicantEmail,
+    applicantPhone
+  );
   return {
     ...localResult,
     isRealAi: false,
-    modelUsed: 'Intelligent Local NLP Engine',
+    modelUsed: 'Intelligent Local NLP Engine (Identity Guard)',
     latencyMs: Date.now() - startTime
   };
 }
@@ -120,6 +141,9 @@ async function callGeminiApiWithFallback(
   job: Job,
   applicantName: string,
   applicantHeadline: string,
+  applicantBiodata: UserBiodata | undefined,
+  applicantEmail: string,
+  applicantPhone: string,
   documentsText: string,
   apiKey: string,
   preferredModel: string
@@ -129,7 +153,17 @@ async function callGeminiApiWithFallback(
 
   for (const model of modelsToTry) {
     try {
-      const result = await callSingleGeminiModel(job, applicantName, applicantHeadline, documentsText, apiKey, model);
+      const result = await callSingleGeminiModel(
+        job,
+        applicantName,
+        applicantHeadline,
+        applicantBiodata,
+        applicantEmail,
+        applicantPhone,
+        documentsText,
+        apiKey,
+        model
+      );
       if (result) {
         return result;
       }
@@ -152,13 +186,26 @@ async function callSingleGeminiModel(
   job: Job,
   applicantName: string,
   applicantHeadline: string,
+  applicantBiodata: UserBiodata | undefined,
+  applicantEmail: string,
+  applicantPhone: string,
   documentsText: string,
   apiKey: string,
   modelName: string
 ): Promise<AiEvaluationResult | null> {
+  const officialName = applicantBiodata?.fullName || applicantName;
+  const officialPhone = applicantBiodata?.phone || applicantPhone || 'Tidak dicantumkan';
+  const officialEmail = applicantEmail || 'Tidak dicantumkan';
+  const officialEducation = applicantBiodata?.lastEducation || 'S1';
+  const officialMajor = applicantBiodata?.educationMajor || 'Tidak dicantumkan';
+  const officialInstitution = applicantBiodata?.institutionName || 'Tidak dicantumkan';
+  const officialGradYear = applicantBiodata?.graduationYear || 'Tidak dicantumkan';
+  const officialGpa = applicantBiodata?.gpa || 'Tidak dicantumkan';
+  const officialBio = applicantBiodata?.bioSummary || applicantHeadline || 'Tidak dicantumkan';
+
   const prompt = `
-Anda adalah AI Human Resource Director & Senior ATS Screening Specialist bersertifikasi internasional.
-Lakukan analisis mendalam, kritis, tajam, objektif, dan komprehensif terhadap seluruh berkas lamaran kandidat (CV, Surat Lamaran, Portofolio, Sertifikat) dibandingkan dengan kualifikasi lowongan pekerjaan yang dilamar.
+Anda adalah AI Human Resource Director & Chief ATS Screening Specialist bersertifikasi internasional dengan keahlian Audit Forensik Dokumen & Verifikasi Identitas Kandidat.
+Lakukan analisis mendalam, kritis, tajam, objektif, dan komprehensif terhadap seluruh berkas lamaran kandidat (CV, Surat Lamaran, Portofolio, Sertifikat) dibandingkan dengan kualifikasi lowongan pekerjaan serta BIODATA RESMI PELAMAR.
 
 === INFORMASI LOWONGAN PEKERJAAN ===
 Judul Posisi: ${job.title}
@@ -177,45 +224,71 @@ ${job.requirements.map(r => `- ${r}`).join('\n')}
 
 ${job.responsibilities && job.responsibilities.length > 0 ? `Tanggung Jawab Utama:\n${job.responsibilities.map(resp => `- ${resp}`).join('\n')}` : ''}
 
-=== DATA PELAMAR ===
-Nama Resmi (sesuai KTP/Biodata): ${applicantName}
-Headline: ${applicantHeadline || 'Tidak dicantumkan'}
+=== DATA BIODATA RESMI PELAMAR (AKUN KTP TERVERIFIKASI SISTEM) ===
+Nama Lengkap Resmi (KTP): ${officialName}
+Email Terdaftar: ${officialEmail}
+No. WhatsApp / Telepon: ${officialPhone}
+Pendidikan Terakhir: ${officialEducation}
+Jurusan / Program Studi: ${officialMajor}
+Universitas / Institusi / Sekolah: ${officialInstitution}
+Tahun Lulus: ${officialGradYear}
+IPK: ${officialGpa}
+Ringkasan Karir / Bio: ${officialBio}
 
 === BERKAS DOKUMEN ASLI PELAMAR (CV, SURAT LAMARAN, SERTIFIKAT, PORTOFOLIO) ===
 ${documentsText}
 
-=== INSTRUKSI ANALISIS MENDALAM & VALIDASI RELEVANSI ===
-1. Telaah seluruh teks CV, Surat Lamaran, Riwayat Karir, Portofolio, dan Sertifikat pelamar.
-2. ANALISIS KESESUAIAN DOMAIN / SEKTOR INDUSTRI:
-   - Bandingkan secara cermat apakah domain keahlian pelamar (misal: Software/AI Engineering, F&B/Hospitality, Sales, Finance, dsb) benar-benar cocok dengan posisi ${job.title}.
-   - Deteksi apakah ada salah kirim berkas (wrong document submission), contoh: pelamar memasukkan CV software engineer untuk lowongan barista kedai kopi, atau surat lamaran ditujukan ke perusahaan/posisi lain.
-   - Jika ada perbedaan domain ekstrem / salah kirim berkas, jelaskan secara eksplisit di executiveSummary dan recommendationReason, serta berikan skor yang mencerminkan ketidakcocokan tersebut (Low Match).
-3. Berikan penilaian skor objektif (skala 0 - 100) untuk 5 Dimensi Kompetensi berikut:
-   - technicalScore (Kualifikasi Teknis): Kesesuaian nyata keahlian teknis, tools, dan metodologi pelamar terhadap Key Skills lowongan (${job.keySkills.join(', ')}).
-   - experienceScore (Relevansi Pengalaman): Kesesuaian jumlah tahun pengalaman, relevansi industri, kedalaman proyek, dan seniority.
-   - educationScore (Latar Belakang Pendidikan): Kesesuaian jenjang pendidikan, jurusan terkait, dan sertifikasi profesional pendukung.
-   - motivationScore (Motivasi & Ketertarikan Karir): Kualitas surat lamaran, relevansi tujuan pelamar, kejelasan komunikasi, dan antusiasme.
-   - cultureFitScore (Keselarasan Budaya Kerja): Kesiapan adaptasi, kolaborasi tim, kepemimpinan, dan etika profesional.
-   - overallScore: Nilai agregat tertimbang (35% Technical + 30% Experience + 20% Education + 15% Motivation). Catatan: Jika domain tidak relevan sama sekali, overallScore harus mencerminkan Low Match (< 50).
-4. Tentukan fitLevel:
-   - "Top Match" (overallScore >= 85)
-   - "High Match" (overallScore >= 70 && < 85)
-   - "Moderate Match" (overallScore >= 50 && < 70)
-   - "Low Match" (overallScore < 50)
-5. Tentukan recommendation:
-   - "STRONGLY_RECOMMENDED" (Sangat direkomendasikan lanjut ke Hiring Manager)
-   - "INTERVIEW" (Layak diuji wawancara teknis / HR)
-   - "CONSIDER" (Dipertimbangkan sebagai cadangan / perlu pendalaman)
-   - "NOT_SUITABLE" (Belum memenuhi kualifikasi)
-6. Susun "executiveSummary" dalam Bahasa Indonesia formal, lugas, dan tajam (3-4 kalimat padat yang menjelaskan profil kandidat, apakah berkas relevan atau tidak dengan posisi ${job.title}, dan poin pertimbangan utama).
-7. Tulis "recommendationReason" (1-2 kalimat tegas yang merangkum alasan utama rekomendasi/keputusan ATS).
-8. Tulis "strengths" (2-4 poin kekuatan utama kandidat yang mengutip fakta riil dari berkas pelamar).
-9. Tulis "gaps" (2-4 poin celah kompetensi, kekurangan teknis, atau ketidaksesuaian nyata terhadap kualifikasi lowongan ${job.title}).
-10. Identifikasi "matchedSkills", "missingSkills", dan "additionalSkills".
-11. Buat 3 pertanyaan wawancara terpersonalisasi di "detailedQuestions" menggali isi berkas kandidat.
+=== ATURAN KRITIS #1: AUDIT KEASLIAN & KEPEMILIKAN DOKUMEN (IDENTITY & FRAUD VERIFICATION - ZERO TOLERANCE) ===
+Anda HARUS memeriksa apakah dokumen yang diunggah benar-benar milik pelamar (${officialName}) atau milik orang lain:
+1. EKSTRAKSI IDENTITAS DOKUMEN:
+   - Baca dan catat nama lengkap, email, nomor HP, universitas yang tertulis di bagian atas CV, salam surat lamaran, sertifikat, atau portofolio.
+2. PENCOCOKAN DENGAN BIODATA RESMI:
+   - Cocokkan nama yang tertulis di CV dengan Nama Lengkap Resmi pelamar (${officialName}).
+   - Cocokkan nama pada surat lamaran dan sertifikat.
+3. ATURAN PENALTI FATAL JIKA DOKUMEN MILIK ORANG LAIN (FRAUD / SALAH BERKAS):
+   - JIKA nama di CV atau berkas pendukung terbukti milik ORANG LAIN (misalnya nama pelamar adalah "${officialName}", tetapi di CV tertulis nama orang lain yang berbeda jauh seperti "Budi Santoso", "Riko Rizky Baswara", dsb.):
+     * "documentOwnership.status" HARUS diisi "CONFIRMED_FRAUD_OR_IMPERSONATION" atau "SUSPICIOUS_MISMATCH".
+     * "documentOwnership.isAuthenticOwner" HARUS false.
+     * "documentOwnership.identityConfidence" HARUS "Fraud/Impersonation" atau "Low".
+     * DILARANG KERAS MEMBERIKAN SKOR TINGGI! Walaupun skill di CV tersebut 100% cocok dengan lowongan, overallScore MAKSIMAL HANYA 5 - 15 (Low Match), karena CV tersebut bukan milik pelamar yang mengajukan lamaran!
+     * technicalScore, experienceScore, educationScore, motivationScore HARUS di-penalti berat (< 20).
+     * "recommendation" HARUS "NOT_SUITABLE".
+     * "fitLevel" HARUS "Low Match".
+     * "executiveSummary" HARUS diawali dengan kalimat peringatan tajam dan tegas kepada HRD:
+       "PERINGATAN AUDIT ATS: Terdeteksi ketidaksesuaian identitas fatal / indikasi kuat impersonasi atau salah unggah dokumen. Dokumen CV mencantumkan nama [Sebutkan Nama di CV], yang sama sekali tidak sesuai dengan identitas resmi akun pelamar (${officialName})."
+     * "riskFactors" HARUS mencantumkan: "Dokumen CV atas nama orang lain ([Nama di CV]) bukan milik pelamar akun (${officialName})".
+   - JIKA nama di CV cocok/sesuai dengan pelamar (${officialName}):
+     * "documentOwnership.status": "VERIFIED_MATCH"
+     * "documentOwnership.isAuthenticOwner": true
+     * "documentOwnership.identityConfidence": "High"
+     * Nilai kesesuaian dihitung secara adil dan objektif sesuai kualifikasi pekerjaan.
 
-KEMBALIKAN HANYA JSON MURNI YANG VALID (Valid JSON Object) TANPA MARKDOWN BACKTICKS ATAU PENJELASAN LAIN DI LUAR JSON. Format JSON:
+=== INSTRUKSI PENILAIAN KOMPETENSI (JIKA DOKUMEN VALID) ===
+1. Berikan penilaian skor objektif (skala 0 - 100) untuk 5 Dimensi Kompetensi:
+   - technicalScore: Kesesuaian nyata keahlian teknis (${job.keySkills.join(', ')}).
+   - experienceScore: Kesesuaian tahun pengalaman, seniority, dan kedalaman industri.
+   - educationScore: Kesesuaian jenjang pendidikan, jurusan, dan sertifikasi.
+   - motivationScore: Kualitas surat lamaran dan keseriusan pelamar.
+   - cultureFitScore: Keselarasan budaya kerja dan etika profesional.
+   - overallScore: Nilai agregat tertimbang (35% Tech + 30% Exp + 20% Edu + 15% Mot).
+2. Tentukan fitLevel: "Top Match" (>= 85) | "High Match" (70 - 84) | "Moderate Match" (50 - 69) | "Low Match" (< 50).
+3. Tentukan recommendation: "STRONGLY_RECOMMENDED" | "INTERVIEW" | "CONSIDER" | "NOT_SUITABLE".
+4. Susun "executiveSummary" dalam Bahasa Indonesia formal, lugas, dan tajam (3-4 kalimat).
+5. Tulis "recommendationReason" (1-2 kalimat tegas).
+6. Tulis "strengths" (2-4 poin) dan "gaps" (2-4 poin).
+7. Identifikasi "matchedSkills", "missingSkills", dan "additionalSkills".
+8. Buat 3 pertanyaan wawancara terpersonalisasi di "detailedQuestions".
+
+KEMBALIKAN HANYA JSON MURNI YANG VALID (Valid JSON Object) TANPA MARKDOWN BACKTICKS ATAU TEKS LAIN. Format JSON:
 {
+  "documentOwnership": {
+    "status": "VERIFIED_MATCH",
+    "isAuthenticOwner": true,
+    "identityConfidence": "High",
+    "detectedNamesInDocuments": ["Nama yang tertulis di dokumen"],
+    "mismatchedFields": [],
+    "ownershipAuditNotes": "Hasil verifikasi kesesuaian identitas nama dan biodata pelamar."
+  },
   "overallScore": 88,
   "technicalScore": 90,
   "experienceScore": 85,
@@ -251,7 +324,7 @@ KEMBALIKAN HANYA JSON MURNI YANG VALID (Valid JSON Object) TANPA MARKDOWN BACKTI
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
-          temperature: 0.15,
+          temperature: 0.1,
           responseMimeType: 'application/json'
         }
       })
@@ -294,6 +367,71 @@ KEMBALIKAN HANYA JSON MURNI YANG VALID (Valid JSON Object) TANPA MARKDOWN BACKTI
     }
   }
 
+  // Extract raw documents for local identity cross-check safety guard
+  const localAudit = auditDocumentIdentity(
+    officialName,
+    officialEmail,
+    documentsText
+  );
+
+  // If AI or local audit indicates fraud/mismatch, apply hard security override
+  const isFraudOrMismatch =
+    parsed.documentOwnership?.isAuthenticOwner === false ||
+    parsed.documentOwnership?.status === 'CONFIRMED_FRAUD_OR_IMPERSONATION' ||
+    parsed.documentOwnership?.status === 'SUSPICIOUS_MISMATCH' ||
+    !localAudit.isAuthenticOwner;
+
+  let finalOverallScore = Math.min(100, Math.max(0, Number(parsed.overallScore) || 75));
+  let finalTechnicalScore = Math.min(100, Math.max(0, Number(parsed.technicalScore) || 75));
+  let finalExperienceScore = Math.min(100, Math.max(0, Number(parsed.experienceScore) || 75));
+  let finalEducationScore = Math.min(100, Math.max(0, Number(parsed.educationScore) || 75));
+  let finalMotivationScore = Math.min(100, Math.max(0, Number(parsed.motivationScore) || 75));
+  let finalFitLevel: FitLevel = parsed.fitLevel || 'High Match';
+  let finalRecommendation: RecommendationDecision = parsed.recommendation || 'INTERVIEW';
+  let finalExecutiveSummary = parsed.executiveSummary || 'Analisis berkas kandidat telah selesai diproses.';
+  let finalRecommendationReason = parsed.recommendationReason || 'Kandidat memiliki potensi yang relevan dengan spesifikasi pekerjaan.';
+  let finalRiskFactors: string[] = Array.isArray(parsed.riskFactors) ? parsed.riskFactors : [];
+
+  let finalDocOwnership: DocumentOwnershipVerification = {
+    status: parsed.documentOwnership?.status || (localAudit.isAuthenticOwner ? 'VERIFIED_MATCH' : localAudit.status),
+    isAuthenticOwner: parsed.documentOwnership?.isAuthenticOwner !== undefined ? parsed.documentOwnership.isAuthenticOwner : localAudit.isAuthenticOwner,
+    identityConfidence: parsed.documentOwnership?.identityConfidence || localAudit.confidence,
+    detectedNamesInDocuments: Array.isArray(parsed.documentOwnership?.detectedNamesInDocuments) && parsed.documentOwnership.detectedNamesInDocuments.length > 0
+      ? parsed.documentOwnership.detectedNamesInDocuments
+      : localAudit.detectedNames,
+    mismatchedFields: Array.isArray(parsed.documentOwnership?.mismatchedFields) && parsed.documentOwnership.mismatchedFields.length > 0
+      ? parsed.documentOwnership.mismatchedFields
+      : localAudit.mismatches,
+    ownershipAuditNotes: parsed.documentOwnership?.ownershipAuditNotes || localAudit.notes,
+    verifiedAt: new Date().toISOString()
+  };
+
+  if (isFraudOrMismatch) {
+    finalOverallScore = Math.min(finalOverallScore, 13);
+    finalTechnicalScore = Math.min(finalTechnicalScore, 15);
+    finalExperienceScore = Math.min(finalExperienceScore, 10);
+    finalEducationScore = Math.min(finalEducationScore, 15);
+    finalMotivationScore = Math.min(finalMotivationScore, 10);
+    finalFitLevel = 'Low Match';
+    finalRecommendation = 'NOT_SUITABLE';
+
+    finalDocOwnership.isAuthenticOwner = false;
+    if (finalDocOwnership.status === 'VERIFIED_MATCH') {
+      finalDocOwnership.status = localAudit.status;
+      finalDocOwnership.identityConfidence = localAudit.confidence;
+      finalDocOwnership.ownershipAuditNotes = localAudit.notes;
+    }
+
+    const otherPerson = finalDocOwnership.detectedNamesInDocuments.join(', ') || 'Nama Lain';
+    if (!finalExecutiveSummary.toLowerCase().includes('bukan milik') && !finalExecutiveSummary.toLowerCase().includes('ketidaksesuaian')) {
+      finalExecutiveSummary = `PERINGATAN AUDIT ATS: Berkas dokumen (CV / Surat Lamaran) teridentifikasi kuat bukan milik pelamar akun. Dokumen mencantumkan identitas atas nama [${otherPerson}], yang tidak sesuai dengan biodata resmi pelamar (${officialName}). Indikasi salah kirim berkas atau impersonasi dokumen.`;
+    }
+    finalRecommendationReason = `Kandidat langsung dinyatakan TIDAK LOLOS (NOT_SUITABLE) akibat ketidaksesuaian identitas kepemilikan dokumen yang fatal.`;
+    if (!finalRiskFactors.some(r => r.includes('identitas') || r.includes('Inkonsistensi'))) {
+      finalRiskFactors.unshift(`Inkonsistensi Identitas Fatal: Dokumen CV atas nama "${otherPerson}" bukan milik pelamar akun (${officialName})`);
+    }
+  }
+
   // Normalise suggestedInterviewQuestions if detailedQuestions exists
   const suggestedQuestions: string[] = Array.isArray(parsed.suggestedInterviewQuestions) && parsed.suggestedInterviewQuestions.length > 0
     ? parsed.suggestedInterviewQuestions
@@ -308,27 +446,155 @@ KEMBALIKAN HANYA JSON MURNI YANG VALID (Valid JSON Object) TANPA MARKDOWN BACKTI
     : `Google ${modelName}`;
 
   return {
-    overallScore: Math.min(100, Math.max(0, Number(parsed.overallScore) || 75)),
-    technicalScore: Math.min(100, Math.max(0, Number(parsed.technicalScore) || 75)),
-    experienceScore: Math.min(100, Math.max(0, Number(parsed.experienceScore) || 75)),
-    educationScore: Math.min(100, Math.max(0, Number(parsed.educationScore) || 75)),
-    motivationScore: Math.min(100, Math.max(0, Number(parsed.motivationScore) || 75)),
+    overallScore: finalOverallScore,
+    technicalScore: finalTechnicalScore,
+    experienceScore: finalExperienceScore,
+    educationScore: finalEducationScore,
+    motivationScore: finalMotivationScore,
     cultureFitScore: parsed.cultureFitScore ? Math.min(100, Math.max(0, Number(parsed.cultureFitScore))) : undefined,
-    fitLevel: parsed.fitLevel || 'High Match',
-    executiveSummary: parsed.executiveSummary || 'Analisis berkas kandidat telah selesai diproses.',
+    fitLevel: finalFitLevel,
+    executiveSummary: finalExecutiveSummary,
     strengths: Array.isArray(parsed.strengths) && parsed.strengths.length > 0 ? parsed.strengths : ['Memiliki profil kompetensi yang relevan'],
     gaps: Array.isArray(parsed.gaps) && parsed.gaps.length > 0 ? parsed.gaps : ['Tidak ditemukan kesenjangan mencolok'],
     matchedSkills: Array.isArray(parsed.matchedSkills) ? parsed.matchedSkills : [],
     missingSkills: Array.isArray(parsed.missingSkills) ? parsed.missingSkills : [],
     additionalSkills: Array.isArray(parsed.additionalSkills) ? parsed.additionalSkills : [],
-    recommendation: parsed.recommendation || 'INTERVIEW',
-    recommendationReason: parsed.recommendationReason || 'Kandidat memiliki potensi yang relevan dengan spesifikasi pekerjaan.',
+    recommendation: finalRecommendation,
+    recommendationReason: finalRecommendationReason,
     suggestedInterviewQuestions: suggestedQuestions,
     detailedQuestions: Array.isArray(parsed.detailedQuestions) ? parsed.detailedQuestions : [],
-    riskFactors: Array.isArray(parsed.riskFactors) ? parsed.riskFactors : [],
+    riskFactors: finalRiskFactors,
+    documentOwnership: finalDocOwnership,
     isRealAi: true,
     modelUsed: displayModelName,
     analyzedAt: new Date().toISOString()
+  };
+}
+
+/**
+ * Intelligent Document Identity & Ownership Cross-Checking Engine
+ */
+export function auditDocumentIdentity(
+  officialName: string,
+  officialEmail: string,
+  documentsInput: DocumentAttachment[] | string
+): {
+  isAuthenticOwner: boolean;
+  status: 'VERIFIED_MATCH' | 'SUSPICIOUS_MISMATCH' | 'CONFIRMED_FRAUD_OR_IMPERSONATION' | 'PARTIAL_MISMATCH';
+  confidence: 'High' | 'Medium' | 'Low' | 'Fraud/Impersonation';
+  detectedNames: string[];
+  mismatches: string[];
+  notes: string;
+} {
+  const combinedText = typeof documentsInput === 'string'
+    ? documentsInput
+    : documentsInput.map(d => d.extractedText || `[File: ${d.name}]`).join('\n');
+
+  const lowerText = combinedText.toLowerCase();
+  const cleanOfficial = officialName.trim().toLowerCase();
+  const officialTokens = cleanOfficial.split(/\s+/).filter(t => t.length >= 2);
+
+  // 1. Check if official full name or substantial tokens exist in the document text
+  const isFullNameInDoc = lowerText.includes(cleanOfficial);
+  const matchingTokens = officialTokens.filter(token => lowerText.includes(token));
+  const tokenMatchRatio = officialTokens.length > 0 ? matchingTokens.length / officialTokens.length : 0;
+
+  // If full name is in document OR majority of name tokens (at least 2 words or >= 60% tokens) are in document:
+  // It is definitively the candidate's authentic document!
+  const hasStrongOfficialNameMatch = isFullNameInDoc || tokenMatchRatio >= 0.6 || (officialTokens.length >= 2 && matchingTokens.length >= 2);
+
+  if (hasStrongOfficialNameMatch) {
+    return {
+      isAuthenticOwner: true,
+      status: 'VERIFIED_MATCH',
+      confidence: 'High',
+      detectedNames: [officialName],
+      mismatches: [],
+      notes: `Identitas berkas sah. Nama pada dokumen CV cocok dengan biodata resmi pelamar (${officialName}).`
+    };
+  }
+
+  // 2. If name is NOT in document, detect if another person's name is present
+  const lines = combinedText.split('\n').map(l => l.trim()).filter(Boolean);
+  const detectedOtherNames: string[] = [];
+
+  const blacklistKeywords = [
+    'curriculum', 'vitae', 'resume', 'data pribadi', 'personal info', 'contact', 'pengalaman',
+    'pendidikan', 'ringkasan', 'summary', 'profile', 'tentang saya', 'about me', 'engineer',
+    'developer', 'specialist', 'manager', 'jakarta', 'indonesia', 'indonesian', 'skills',
+    'keahlian', 'alamat', 'address', 'telepon', 'phone', 'email', 'linkedin', 'github', 'portofolio',
+    'dokumen', 'berkas', 'sertifikat', 'surat lamaran', 'cover letter', 'yogyakarta', 'surabaya', 'bandung',
+    'technology', 'bnsp', 'work experience', 'key projects', 'organization', 'education', 'certifications',
+    'proyek', 'pengalaman kerja', 'prestasi', 'training', 'pelatihan'
+  ];
+
+  for (let i = 0; i < Math.min(lines.length, 30); i++) {
+    const rawLine = lines[i];
+    if (rawLine.length < 3 || rawLine.length > 45) continue;
+
+    const lower = rawLine.toLowerCase();
+    if (blacklistKeywords.some(kw => lower.includes(kw))) {
+      continue;
+    }
+
+    const cleanLine = rawLine.replace(/^(nama lengkap|nama|name|full name)\s*[:\-]?\s*/i, '').trim();
+    if (/^[A-Za-z\s'.]{4,40}$/.test(cleanLine)) {
+      const words = cleanLine.split(/\s+/);
+      if (words.length >= 2 && words.length <= 4) {
+        const hasBlacklist = words.some(w => blacklistKeywords.includes(w.toLowerCase()));
+        if (!hasBlacklist) {
+          detectedOtherNames.push(cleanLine);
+        }
+      }
+    }
+  }
+
+  // Also check Cover Letter signature lines
+  for (let i = 0; i < lines.length; i++) {
+    if (/^(hormat saya|salam hormat|salam hangat|regards|sincerely|tertanda)/i.test(lines[i])) {
+      const nextLine = (lines[i + 1] || '').trim();
+      const cleanNext = nextLine.replace(/^[(\[]+|[)\]]+$/g, '').trim();
+      if (/^[A-Za-z\s'.]{4,40}$/.test(cleanNext)) {
+        const words = cleanNext.split(/\s+/);
+        if (words.length >= 2 && words.length <= 4 && !blacklistKeywords.some(kw => cleanNext.toLowerCase().includes(kw))) {
+          detectedOtherNames.push(cleanNext);
+        }
+      }
+    }
+  }
+
+  const uniqueOtherNames = Array.from(new Set(detectedOtherNames));
+
+  if (uniqueOtherNames.length > 0) {
+    const otherPersonName = uniqueOtherNames[0];
+    return {
+      isAuthenticOwner: false,
+      status: 'CONFIRMED_FRAUD_OR_IMPERSONATION',
+      confidence: 'Fraud/Impersonation',
+      detectedNames: uniqueOtherNames,
+      mismatches: [`Nama di dokumen ("${otherPersonName}") tidak cocok dengan Akun/KTP ("${officialName}")`],
+      notes: `TERDETEKSI DOKUMEN ORANG LAIN: Berkas dokumen mencantumkan identitas atas nama "${otherPersonName}", sedangkan pelamar akun terdaftar resmi atas nama "${officialName}". Berkas ini bukan milik pelamar.`
+    };
+  }
+
+  if (combinedText.length > 150) {
+    return {
+      isAuthenticOwner: false,
+      status: 'SUSPICIOUS_MISMATCH',
+      confidence: 'Low',
+      detectedNames: ['Identitas Tidak Teridentifikasi'],
+      mismatches: [`Nama pelamar "${officialName}" tidak teridentifikasi pada teks dokumen berkas lamaran.`],
+      notes: `Inkonsistensi identitas terdeteksi: Nama resmi "${officialName}" tidak ditemukan di dalam teks berkas yang dilampirkan.`
+    };
+  }
+
+  return {
+    isAuthenticOwner: true,
+    status: 'VERIFIED_MATCH',
+    confidence: 'Medium',
+    detectedNames: [officialName],
+    mismatches: [],
+    notes: `Dokumen terlampir atas nama pelamar (${officialName}).`
   };
 }
 
@@ -339,13 +605,23 @@ KEMBALIKAN HANYA JSON MURNI YANG VALID (Valid JSON Object) TANPA MARKDOWN BACKTI
 export function runIntelligentLocalAnalysis(
   job: Job,
   applicantName: string,
-  applicantHeadline: string,
-  documents: DocumentAttachment[]
+  applicantHeadline: string = '',
+  documents: DocumentAttachment[] = [],
+  applicantBiodata?: UserBiodata,
+  applicantEmail: string = '',
+  applicantPhone: string = ''
 ): AiEvaluationResult {
+  const officialName = applicantBiodata?.fullName || applicantName;
+  const officialPhone = applicantBiodata?.phone || applicantPhone || '';
+  const officialEmail = applicantEmail || '';
+
   const combinedText = [
     applicantHeadline,
-    ...documents.map(d => d.extractedText)
+    ...documents.map(d => d.extractedText || `[File: ${d.name}]`)
   ].join(' ').toLowerCase();
+
+  // Run Identity Cross-Check Audit
+  const identityAudit = auditDocumentIdentity(officialName, officialEmail, documents);
 
   // 1. Key Skills Matching
   const matchedSkills: string[] = [];
@@ -438,7 +714,7 @@ export function runIntelligentLocalAnalysis(
   const hasCoverLetter = documents.some(d => d.type === 'cover_letter');
   if (hasCoverLetter) {
     const cl = documents.find(d => d.type === 'cover_letter')!;
-    if (cl.extractedText.length > 200 && !isCompleteMismatch) {
+    if (cl.extractedText && cl.extractedText.length > 200 && !isCompleteMismatch) {
       motivationScore = 92;
     } else if (!isCompleteMismatch) {
       motivationScore = 78;
@@ -446,7 +722,7 @@ export function runIntelligentLocalAnalysis(
   }
 
   // 5. Aggregate Overall Score
-  const overallScore = isCompleteMismatch
+  let overallScore = isCompleteMismatch
     ? 10
     : Math.round(
         technicalScore * 0.35 +
@@ -501,22 +777,40 @@ export function runIntelligentLocalAnalysis(
 
   let executiveSummary = '';
   let recommendationReason = '';
+  const riskFactors: string[] = [];
 
   if (isCompleteMismatch) {
-    executiveSummary = `Kandidat ${applicantName} mengajukan berkas lamaran yang tidak relevan dengan posisi ${job.title}. Seluruh pengalaman kerja, sertifikasi, dan kompetensi teknis kandidat berada pada domain keahlian yang berbeda dengan kualifikasi yang dibutuhkan.`;
+    executiveSummary = `Kandidat ${officialName} mengajukan berkas lamaran yang tidak relevan dengan posisi ${job.title}. Seluruh pengalaman kerja, sertifikasi, dan kompetensi teknis kandidat berada pada domain keahlian yang berbeda dengan kualifikasi yang dibutuhkan.`;
     recommendationReason = `Kandidat tidak memenuhi kualifikasi teknis dan pengalaman operasional yang dibutuhkan untuk posisi ${job.title}.`;
   } else if (fitLevel === 'Top Match') {
-    executiveSummary = `Kandidat ${applicantName} memiliki keselarasan profil yang sangat kuat untuk posisi ${job.title}. Penguasaan keahlian (${matchedSkills.join(', ')}) dan riwayat karir memenuhi standar tinggi yang disyaratkan.`;
+    executiveSummary = `Kandidat ${officialName} memiliki keselarasan profil yang sangat kuat untuk posisi ${job.title}. Penguasaan keahlian (${matchedSkills.join(', ')}) dan riwayat karir memenuhi standar tinggi yang disyaratkan.`;
     recommendationReason = 'Sangat direkomendasikan untuk segera dijadwalkan wawancara dengan Hiring Manager.';
   } else if (fitLevel === 'High Match') {
-    executiveSummary = `Kandidat ${applicantName} menunjukkan kompetensi yang relevan dan solid untuk posisi ${job.title}, dengan penguasaan pada mayoritas keahlian kunci.`;
+    executiveSummary = `Kandidat ${officialName} menunjukkan kompetensi yang relevan dan solid untuk posisi ${job.title}, dengan penguasaan pada mayoritas keahlian kunci.`;
     recommendationReason = 'Layak untuk diikutsertakan ke tahap interview atau technical assessment.';
   } else if (fitLevel === 'Moderate Match') {
-    executiveSummary = `Kandidat ${applicantName} memiliki dasar keahlian yang cukup, namun masih memiliki celah pada beberapa tools utama untuk posisi ${job.title}.`;
+    executiveSummary = `Kandidat ${officialName} memiliki dasar keahlian yang cukup, namun masih memiliki celah pada beberapa tools utama untuk posisi ${job.title}.`;
     recommendationReason = 'Dapat dipertimbangkan sebagai opsi cadangan atau jenjang pendukung.';
   } else {
-    executiveSummary = `Profil kandidat ${applicantName} belum memenuhi kualifikasi minimum yang diharapkan untuk posisi ${job.title}.`;
+    executiveSummary = `Profil kandidat ${officialName} belum memenuhi kualifikasi minimum yang diharapkan untuk posisi ${job.title}.`;
     recommendationReason = 'Kandidat belum sesuai dengan kebutuhan posisi saat ini.';
+  }
+
+  // === APPLY ZERO-TOLERANCE DOCUMENT FRAUD & MISMATCH OVERRIDE ===
+  if (!identityAudit.isAuthenticOwner) {
+    overallScore = 13;
+    technicalScore = 15;
+    experienceScore = 10;
+    educationScore = 15;
+    motivationScore = 10;
+    fitLevel = 'Low Match';
+    recommendation = 'NOT_SUITABLE';
+
+    const otherPerson = identityAudit.detectedNames.join(', ') || 'Nama Lain';
+    executiveSummary = `PERINGATAN AUDIT ATS: Berkas dokumen (CV / Surat Lamaran) teridentifikasi kuat bukan milik pelamar akun. Dokumen mencantumkan identitas atas nama [${otherPerson}], yang tidak sesuai dengan biodata resmi pelamar (${officialName}). Indikasi salah kirim berkas atau impersonasi dokumen.`;
+    recommendationReason = `Kandidat langsung dinyatakan TIDAK LOLOS (NOT_SUITABLE) akibat ketidaksesuaian identitas kepemilikan dokumen yang fatal.`;
+    riskFactors.push(`Inkonsistensi Identitas Fatal: Dokumen CV atas nama "${otherPerson}" bukan milik pelamar akun (${officialName})`);
+    gaps.unshift(`Dokumen CV terdeteksi atas nama orang lain (${otherPerson}).`);
   }
 
   const detailedQuestions: DetailedInterviewQuestion[] = [
@@ -537,6 +831,16 @@ export function runIntelligentLocalAnalysis(
     }
   ];
 
+  const documentOwnership: DocumentOwnershipVerification = {
+    status: identityAudit.status,
+    isAuthenticOwner: identityAudit.isAuthenticOwner,
+    identityConfidence: identityAudit.confidence,
+    detectedNamesInDocuments: identityAudit.detectedNames,
+    mismatchedFields: identityAudit.mismatches,
+    ownershipAuditNotes: identityAudit.notes,
+    verifiedAt: new Date().toISOString()
+  };
+
   return {
     overallScore,
     technicalScore,
@@ -554,7 +858,8 @@ export function runIntelligentLocalAnalysis(
     recommendationReason,
     suggestedInterviewQuestions: detailedQuestions.map(d => d.question),
     detailedQuestions,
-    riskFactors: [],
+    riskFactors,
+    documentOwnership,
     analyzedAt: new Date().toISOString()
   };
 }

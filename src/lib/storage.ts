@@ -712,7 +712,10 @@ export function repairApplicationEvaluation(app: Application): Application {
     dummyJob,
     app.applicantName || 'Pelamar',
     app.applicantHeadline || '',
-    docs
+    docs,
+    app.applicantBiodata,
+    app.applicantEmail,
+    app.applicantPhone
   );
 
   return {
