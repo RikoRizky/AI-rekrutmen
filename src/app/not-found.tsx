@@ -69,7 +69,7 @@ export default function NotFound() {
               Beranda Utama
             </h4>
             <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-              Kembali ke beranda SmartRecruit
+              Kembali ke beranda GitAJob
             </p>
           </Link>
 

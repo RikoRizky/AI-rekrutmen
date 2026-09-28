@@ -145,7 +145,7 @@ export default function HomePage() {
           <div>
             <h2 className="text-2xl font-bold text-white">Lowongan Kerja Unggulan</h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Posisi aktif dari perusahaan-perusahaan terdaftar di platform SmartRecruit.
+              Posisi aktif dari perusahaan-perusahaan terdaftar di platform GitAJob.
             </p>
           </div>
 

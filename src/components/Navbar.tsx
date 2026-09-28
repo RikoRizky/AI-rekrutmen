@@ -91,11 +91,11 @@ export default function Navbar() {
               className="flex items-center gap-2.5 group"
             >
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-emerald-950/40 group-hover:scale-105 transition-transform">
-                SR
+                GJ
               </div>
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-base tracking-tight text-white">SmartRecruit</span>
+                  <span className="font-bold text-base tracking-tight text-white">GitAJob</span>
                   <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                     ATS SAAS
                   </span>

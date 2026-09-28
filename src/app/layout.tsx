@@ -11,7 +11,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'SmartRecruit AI - Platform SaaS Rekrutmen & ATS Multi-Tenant Cerdas',
+  title: 'GitAJob AI - Platform SaaS Rekrutmen & ATS Multi-Tenant Cerdas',
   description: 'Aplikasi rekrutmen SaaS multi-tenant dengan 3 role terintegrasi, pembayaran Midtrans, undangan email Resend, dan skrining berkas instan Gemini AI.',
   referrer: 'no-referrer',
 };
@@ -45,7 +45,7 @@ export default function RootLayout({
                 SR
               </div>
               <div className="flex flex-col text-left">
-                <span className="font-bold text-white text-sm">SmartRecruit AI Enterprise ATS</span>
+                <span className="font-bold text-white text-sm">GitAJob AI Enterprise ATS</span>
                 <span className="text-[11px] text-slate-400">Platform Rekrutmen Cerdas Multi-Tenant (3 Roles)</span>
               </div>
             </div>
@@ -55,7 +55,7 @@ export default function RootLayout({
             </div>
 
             <div className="text-[11px] text-slate-500">
-              &copy; {new Date().getFullYear()} SmartRecruit. Hak Cipta Dilindungi.
+              &copy; {new Date().getFullYear()} GitAJob. Hak Cipta Dilindungi.
             </div>
           </div>
         </footer>

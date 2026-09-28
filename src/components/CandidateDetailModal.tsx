@@ -1037,7 +1037,7 @@ export default function CandidateDetailModal({
 
                   {currentStatus === 'rejected' ? (
                     <p className="text-xs text-rose-300/90 leading-relaxed">
-                      Mohon maaf, lamaran Anda ditolak dan belum dapat diproses ke tahap berikutnya untuk posisi ini. Tetap semangat dan silakan eksplorasi peluang karir lainnya di SmartRecruit.
+                      Mohon maaf, lamaran Anda ditolak dan belum dapat diproses ke tahap berikutnya untuk posisi ini. Tetap semangat dan silakan eksplorasi peluang karir lainnya di GitAJob.
                     </p>
                   ) : (
                     <p className="text-xs text-slate-400 leading-relaxed">

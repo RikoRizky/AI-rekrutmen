@@ -743,7 +743,7 @@ export default function PricingPage() {
                       </button>
 
                       <p className="text-[11px] text-slate-400 text-center pt-2">
-                        Dengan melanjutkan, Anda menyetujui <span className="text-emerald-400 underline">Syarat & Ketentuan</span> layanan SmartRecruit AI.
+                        Dengan melanjutkan, Anda menyetujui <span className="text-emerald-400 underline">Syarat & Ketentuan</span> layanan GitAJob.
                       </p>
                     </form>
                   </div>
@@ -904,7 +904,7 @@ export default function PricingPage() {
                         Pembayaran Sukses Terverifikasi!
                       </span>
                       <h3 className="text-2xl font-black text-white mt-2">
-                        Selamat Datang di SmartRecruit AI!
+                        Selamat Datang di GitAJob!
                       </h3>
                       <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-md mx-auto">
                         Pembayaran untuk paket <strong>{selectedPkg.name}</strong> telah berhasil diproses oleh Midtrans.

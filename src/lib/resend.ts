@@ -44,7 +44,7 @@ export async function sendCompanyInvitationEmail({
 }: SendCompanyInvitationEmailParams): Promise<{ success: boolean; id?: string }> {
   const gmailTransporter = getGmailTransporter();
   const resendApiKey = process.env.RESEND_API_KEY;
-  const subject = `[Aktivasi Akun] Pendaftaran Perusahaan SmartRecruit AI (${packageName})`;
+  const subject = `[Aktivasi Akun] Pendaftaran Perusahaan GitAJob (${packageName})`;
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -66,7 +66,7 @@ export async function sendCompanyInvitationEmail({
       <body>
         <div class="container">
           <span class="badge">Pembayaran Berhasil Diterima</span>
-          <h1>Selamat Datang di SmartRecruit AI!</h1>
+          <h1>Selamat Datang di GitAJob!</h1>
           <p>Halo <strong>${contactName}</strong>,</p>
           <p>Terima kasih telah berlangganan paket <strong>${packageName}</strong>. Akun perusahaan Anda siap didaftarkan untuk mulai membuka lowongan kerja dan menggunakan analisis berkas kecerdasan buatan Gemini AI.</p>
           
@@ -84,7 +84,7 @@ export async function sendCompanyInvitationEmail({
           </p>
 
           <div class="footer">
-            &copy; ${new Date().getFullYear()} SmartRecruit AI Inc. Hak Cipta Dilindungi.
+            &copy; ${new Date().getFullYear()} GitAJob. Hak Cipta Dilindungi.
           </div>
         </div>
       </body>
@@ -95,7 +95,7 @@ export async function sendCompanyInvitationEmail({
   if (gmailTransporter) {
     try {
       const info = await gmailTransporter.sendMail({
-        from: `"SmartRecruit AI" <${process.env.GMAIL_USER}>`,
+        from: `"GitAJob" <${process.env.GMAIL_USER}>`,
         to: toEmail,
         subject,
         html: htmlContent
@@ -110,7 +110,7 @@ export async function sendCompanyInvitationEmail({
   // 2. Prioritas 2: Gunakan Resend jika RESEND_API_KEY asli ada
   if (resendApiKey && !resendApiKey.startsWith('re_demo')) {
     try {
-      const fromEmail = process.env.EMAIL_FROM || 'SmartRecruit AI <onboarding@resend.dev>';
+      const fromEmail = process.env.EMAIL_FROM || 'GitAJob <onboarding@resend.dev>';
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -165,14 +165,14 @@ export async function sendApplicantStatusNotification({
         ${status.toUpperCase()}
       </div>
       ${customNotes ? `<div style="background-color: #1e293b; padding: 12px; border-radius: 8px; margin-top: 12px; font-size: 13px;"><strong style="color: #94a3b8;">Catatan HR:</strong> ${customNotes}</div>` : ''}
-      <p style="font-size: 12px; color: #64748b; margin-top: 24px;">Silakan login ke portal SmartRecruit AI untuk melihat detail lebih lanjut.</p>
+      <p style="font-size: 12px; color: #64748b; margin-top: 24px;">Silakan login ke portal GitAJob untuk melihat detail lebih lanjut.</p>
     </div>
   `;
 
   if (gmailTransporter) {
     try {
       await gmailTransporter.sendMail({
-        from: `"SmartRecruit AI" <${process.env.GMAIL_USER}>`,
+        from: `"GitAJob" <${process.env.GMAIL_USER}>`,
         to: toEmail,
         subject,
         html: htmlContent
@@ -185,7 +185,7 @@ export async function sendApplicantStatusNotification({
 
   if (resendApiKey && !resendApiKey.startsWith('re_demo')) {
     try {
-      const fromEmail = process.env.EMAIL_FROM || 'SmartRecruit AI <notifications@resend.dev>';
+      const fromEmail = process.env.EMAIL_FROM || 'GitAJob <notifications@resend.dev>';
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {

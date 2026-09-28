@@ -144,7 +144,7 @@ export default function JobsCatalogPage() {
       {/* Header */}
       <div className="space-y-2">
         <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-          Eksplorasi Lowongan Kerja Mitra SmartRecruit
+          Eksplorasi Lowongan Kerja Mitra GitAJob
         </h1>
         <p className="text-xs sm:text-sm text-slate-400">
           Temukan karir impian Anda dari mitra <span className="text-amber-400 font-semibold">UMK</span>, <span className="text-emerald-400 font-semibold">Perusahaan (PT)</span>, hingga <span className="text-purple-400 font-semibold">Industri</span> dengan filter pendidikan dan kriteria gender yang akurat.
